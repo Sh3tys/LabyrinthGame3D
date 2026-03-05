@@ -32,14 +32,14 @@ export class InputController {
     this._onPointerLockChange = this._onPointerLockChange.bind(this);
     this._onPointerLockError = this._onPointerLockError.bind(this);
 
-    window.addEventListener('keydown', this._onKeyDown);
-    window.addEventListener('keyup', this._onKeyUp);
-    document.addEventListener('mousemove', this._onMouseMove);
-    document.addEventListener('pointerlockchange', this._onPointerLockChange);
-    document.addEventListener('pointerlockerror', this._onPointerLockError);
+    window.addEventListener("keydown", this._onKeyDown);
+    window.addEventListener("keyup", this._onKeyUp);
+    document.addEventListener("mousemove", this._onMouseMove);
+    document.addEventListener("pointerlockchange", this._onPointerLockChange);
+    document.addEventListener("pointerlockerror", this._onPointerLockError);
 
     // Clic sur le canvas pour capturer la souris
-    domElement.addEventListener('click', () => {
+    domElement.addEventListener("click", () => {
       domElement.requestPointerLock();
     });
   }
@@ -48,7 +48,7 @@ export class InputController {
 
   _onKeyDown(event) {
     this.#keys.add(event.code);
-    if (event.code === 'KeyV') this.#viewTogglePending = true;
+    if (event.code === "KeyV") this.#viewTogglePending = true;
   }
 
   _onKeyUp(event) {
@@ -67,36 +67,40 @@ export class InputController {
   }
 
   _onPointerLockError() {
-    console.warn('[InputController] Pointer lock error');
+    console.warn("[InputController] Pointer lock error");
   }
 
   // ─── Public API ────────────────────────────────────────────────────────────
 
   /** @returns {boolean} true si la touche avant (Z) est pressée */
-  get forward() { return this.#keys.has('KeyZ') || this.#keys.has('KeyW'); }
+  get forward() {
+    return this.#keys.has("KeyZ") || this.#keys.has("KeyW");
+  }
 
   /** @returns {boolean} true si la touche arrière (S) est pressée */
-  get backward() { return this.#keys.has('KeyS'); }
+  get backward() {
+    return this.#keys.has("KeyS");
+  }
 
   /** @returns {boolean} true si strafe gauche (Q) est pressé */
-  get left() { return this.#keys.has('KeyQ') || this.#keys.has('KeyA'); }
+  get left() {
+    return this.#keys.has("KeyQ") || this.#keys.has("KeyA");
+  }
 
   /** @returns {boolean} true si strafe droite (D) est pressé */
-  get right() { return this.#keys.has('KeyD'); }
-
-  /** @returns {boolean} true si Espace est pressé */
-  get jump() { return this.#keys.has('Space'); }
+  get right() {
+    return this.#keys.has("KeyD");
+  }
 
   /** @returns {boolean} true si le joueur se déplace */
   get isMoving() {
     return this.forward || this.backward || this.left || this.right;
   }
 
-  /** @returns {boolean} true si Shift est pressé pour courir */
-  get run() { return this.#keys.has('ShiftLeft') || this.#keys.has('ShiftRight'); }
-
   /** @returns {boolean} true si le pointeur est verrouillé */
-  get isPointerLocked() { return this.#pointerLocked; }
+  get isPointerLocked() {
+    return this.#pointerLocked;
+  }
 
   /**
    * Retourne true UNE SEULE FOIS par appui sur V (edge-triggered).
@@ -121,10 +125,13 @@ export class InputController {
 
   /** Nettoyage : supprime les event listeners */
   dispose() {
-    window.removeEventListener('keydown', this._onKeyDown);
-    window.removeEventListener('keyup', this._onKeyUp);
-    document.removeEventListener('mousemove', this._onMouseMove);
-    document.removeEventListener('pointerlockchange', this._onPointerLockChange);
-    document.removeEventListener('pointerlockerror', this._onPointerLockError);
+    window.removeEventListener("keydown", this._onKeyDown);
+    window.removeEventListener("keyup", this._onKeyUp);
+    document.removeEventListener("mousemove", this._onMouseMove);
+    document.removeEventListener(
+      "pointerlockchange",
+      this._onPointerLockChange,
+    );
+    document.removeEventListener("pointerlockerror", this._onPointerLockError);
   }
 }
