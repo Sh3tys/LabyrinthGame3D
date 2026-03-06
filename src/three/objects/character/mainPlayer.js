@@ -1,13 +1,16 @@
-import { PlayerCharacter } from "../Player.js";
+// mainPlayer.js is still provided for compatibility with non‑React
+// code, but in a React/JSX project you should prefer the <Player />
+// component exported from ../Player.jsx.
+
+import { Player, PlayerCharacter as LegacyPlayer } from "../Player.jsx";
 
 /**
- * Initialise et retourne une instance du joueur.
- *
- * @param {THREE.Scene} scene - La scène Three.js
- * @param {THREE.PerspectiveCamera} camera - La caméra
- * @param {HTMLElement} domElement - L'élément DOM pour les entrées (un canvas)
- * @param {Object} [collisionsProvider] - Objet optionnel fournissant une méthode resolveCollisions(position)
- * @returns {PlayerCharacter}
+ * createPlayer
+ * -----------
+ * Legacy helper that mimicks the old behaviour by constructing the
+ * PlayerCharacter class.  It issues a deprecation warning; React code
+ * should instead render the <Player> component and call its update
+ * method via an onUpdate prop or a useFrame hook.
  */
 export function createPlayer(
   scene,
@@ -15,7 +18,11 @@ export function createPlayer(
   domElement,
   collisionsProvider = null,
 ) {
-  return new PlayerCharacter(scene, camera, domElement, collisionsProvider);
+  console.warn(
+    "createPlayer() is deprecated — please use the <Player> React component instead",
+  );
+  return new LegacyPlayer(scene, camera, domElement, collisionsProvider);
 }
 
-export { PlayerCharacter };
+// re-export for anyone still importing directly
+export { Player, LegacyPlayer as PlayerCharacter };
