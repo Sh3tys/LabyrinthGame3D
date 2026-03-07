@@ -7,9 +7,9 @@ import { AnimationController } from "../utils/AnimationController.js";
 
 // ─── Configuration ──────────────────────────────────────────
 
-const MODEL_PATH = "../../assets/playerModel/playerModel.fbx";
-const WALK_PATH = "../../assets/playerModel/playerAnimationWalk.fbx";
-const IDLE_PATH = "../../assets/playerModel/playerAnimationStop.fbx";
+const MODEL_PATH = "/models/player/playerModel.fbx";
+const WALK_PATH = "/models/player/playerAnimationWalk.fbx";
+const IDLE_PATH = "/models/player/playerAnimationStop.fbx";
 
 const MOVE_SPEED = 5;
 const MOUSE_SENSITIVITY = 0.002;

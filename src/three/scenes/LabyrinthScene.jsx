@@ -1,11 +1,13 @@
 import React from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { Player } from "../objects/Player.jsx";
 
 /**
- * A very basic Three.js scene rendered with react-three-fiber.
- * It displays a single plane centered at the origin and adds
- * a couple lights and orbit controls so it can be inspected.
+ * LabyrinthScene
+ * --------------
+ * Main 3D scene with a ground plane, lights, and the player character.
+ * The Player component takes over the camera (FPV/TPV), so OrbitControls
+ * is removed — click the canvas to lock the pointer and use WASD to move.
  */
 const LabyrinthScene = () => {
   return (
@@ -19,12 +21,12 @@ const LabyrinthScene = () => {
 
       {/* ground plane rotated flat */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[10, 10]} />
+        <planeGeometry args={[50, 50]} />
         <meshStandardMaterial color="lightgray" />
       </mesh>
 
-      {/* helper controls so the camera can be dragged around */}
-      <OrbitControls />
+      {/* player character — manages camera, model, input & animations */}
+      <Player />
     </Canvas>
   );
 };
