@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { InputController } from "../controls/InputController.js";
 import { AnimationController } from "../utils/AnimationController.js";
 
-// constants moved outside of a class for easier reuse
+// ─── Configuration ──────────────────────────────────────────
+
 const MODEL_PATH = "../../assets/playerModel/playerModel.fbx";
 const WALK_PATH = "../../assets/playerModel/playerAnimationWalk.fbx";
 const IDLE_PATH = "../../assets/playerModel/playerAnimationStop.fbx";
@@ -13,99 +15,170 @@ const MOVE_SPEED = 5;
 const MOUSE_SENSITIVITY = 0.002;
 const PITCH_LIMIT = Math.PI / 2.2;
 const FALLBACK_EYE_HEIGHT = 1.6;
-
 const TPV_OFFSET = new THREE.Vector3(0, 1.2, 3.5);
 
+// ─── PlayerCharacter Class ──────────────────────────────────
+
 /**
- * React component that manages a player character inside a Three.js scene.
+ * PlayerCharacter
+ * ---------------
+ * OOP class that manages the player character in a Three.js scene:
+ *   - Loads an FBX model and animation clips (idle, walk)
+ *   - Handles FPS-style mouse look and WASD/ZQSD movement
+ *   - Supports first-person (FPV) and third-person (TPV) camera
+ *   - Optionally resolves collisions via a "walls" provider
  *
- * The component does not render any DOM nodes; it merely creates and
- * updates the Three objects that represent the character.  A parent
- * is responsible for calling the `update` callback (passed via
- * `onUpdate`) on every animation frame (for example using
- * @react-three/fiber's useFrame).
- *
- * Props:
- *   scene      - THREE.Scene instance
- *   camera     - Perspective camera used for FPV/TPV
- *   domElement - element to attach the input controller to (usually canvas)
- *   walls      - optional collision provider implementing resolveCollisions()
- *   onUpdate   - optional function that receives the internal update
- *                handler so that callers can integrate it into their
- *                rendering loop.
+ * Usage:
+ *   const player = new PlayerCharacter(scene, camera, canvas);
+ *   await player.load();
+ *   // in your render loop:
+ *   player.update(deltaTime);
+ *   // on cleanup:
+ *   player.dispose();
  */
-export function Player({ scene, camera, domElement, walls, onUpdate }) {
-  const yawPivot = useRef(new THREE.Object3D());
-  const model = useRef(null);
-  const animController = useRef(null);
-  const input = useRef(null);
-  const position = useRef(new THREE.Vector3());
-  const pitch = useRef(0);
-  const eyeHeight = useRef(FALLBACK_EYE_HEIGHT);
-  const isFPV = useRef(true);
-  const loaded = useRef(false);
+export class PlayerCharacter {
+  constructor(scene, camera, domElement) {
+    this.scene = scene;
+    this.camera = camera;
+    this.position = new THREE.Vector3();
+    this.pitch = 0;
+    this.eyeHeight = FALLBACK_EYE_HEIGHT;
+    this.isFPV = true;
+    this.loaded = false;
+    this.model = null;
+    this.animController = null;
+    this.walls = null;
 
-  // helpers ported from the original class methods
-  const computeEyeHeight = () => {
-    if (!model.current) return;
-    model.current.updateMatrixWorld(true);
+    // Yaw pivot — parent of camera and model, rotates on Y axis
+    this.yawPivot = new THREE.Object3D();
+    this.yawPivot.name = "PlayerYawPivot";
+    scene.add(this.yawPivot);
 
-    let headBone = null;
-    model.current.traverse((child) => {
-      if (
-        !headBone &&
-        child.isBone &&
-        child.name.toLowerCase().includes("head")
-      ) {
-        headBone = child;
+    // Attach camera to pivot
+    this.yawPivot.add(camera);
+    camera.rotation.order = "YXZ";
+
+    // Input controller
+    this.input = new InputController(domElement);
+  }
+
+  // ── Loading ───────────────────────────────────────────────
+
+  /** Load the player model and animation clips. */
+  async load() {
+    const loader = new FBXLoader();
+
+    try {
+      console.log("[Player] Loading model...");
+
+      // Load the character model
+      const skin = await loader.loadAsync(MODEL_PATH);
+      this.model = skin;
+      this.model.name = "PlayerSkin";
+      this.model.scale.setScalar(0.01);
+      this.model.rotation.y = Math.PI;
+
+      // Enable shadows on all meshes
+      skin.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      this.yawPivot.add(this.model);
+
+      // Load animation clips
+      this.animController = new AnimationController(this.model);
+
+      console.log("[Player] Loading animations...");
+      const [idleFBX, walkFBX] = await Promise.all([
+        loader.loadAsync(IDLE_PATH).catch(() => ({ animations: [] })),
+        loader.loadAsync(WALK_PATH).catch(() => ({ animations: [] })),
+      ]);
+
+      if (idleFBX.animations.length > 0) {
+        this.animController.addAction("idle", idleFBX.animations[0]);
       }
-    });
+      if (walkFBX.animations.length > 0) {
+        this.animController.addAction("walk", walkFBX.animations[0]);
+      }
 
-    if (headBone) {
-      const worldPos = new THREE.Vector3();
-      headBone.getWorldPosition(worldPos);
-      eyeHeight.current = worldPos.y - yawPivot.current.position.y;
-      console.log(`[Player] eye height: ${eyeHeight.current.toFixed(2)}m`);
-    } else {
-      eyeHeight.current = FALLBACK_EYE_HEIGHT;
+      // Set camera height from head bone
+      this._computeEyeHeight();
+      this._applyViewSettings();
+
+      this.loaded = true;
+      console.log("[Player] Ready.");
+    } catch (err) {
+      console.error("[Player] Loading error:", err);
     }
-  };
+  }
 
-  const applyViewSettings = () => {
-    if (!model.current) return;
+  // ── Per-frame update ──────────────────────────────────────
 
-    if (isFPV.current) {
-      camera.position.set(0, eyeHeight.current, 0);
-      model.current.visible = false;
-    } else {
-      const offset = TPV_OFFSET;
-      camera.position.set(offset.x, eyeHeight.current + offset.y, offset.z);
-      model.current.visible = true;
+  /** Call every frame with the delta time in seconds. */
+  update(dt) {
+    if (!this.loaded) return;
+
+    // Toggle FPV / TPV
+    if (this.input.consumeViewToggle()) {
+      this.isFPV = !this.isFPV;
+      this._applyViewSettings();
     }
-  };
 
-  const handleMouseLook = () => {
-    if (!input.current?.isPointerLocked) return;
-    const { x: dx, y: dy } = input.current.consumeMouseDelta();
-    yawPivot.current.rotation.y -= dx * MOUSE_SENSITIVITY;
-    pitch.current -= dy * MOUSE_SENSITIVITY;
-    pitch.current = Math.max(
-      -PITCH_LIMIT,
-      Math.min(PITCH_LIMIT, pitch.current),
-    );
-    camera.rotation.x = pitch.current;
-  };
+    this._handleMouseLook();
+    this._handleMovement(dt);
 
-  const handleMovement = (deltaTime) => {
-    const isMoving = input.current?.isMoving;
+    // Collision resolution (if a wall provider is set)
+    if (this.walls) {
+      this.walls.resolveCollisions(this.position);
+    }
 
-    animController.current?.setMoving(isMoving);
+    // Advance animations
+    if (this.animController) {
+      this.animController.update(dt);
+    }
 
-    if (!isMoving) return;
+    // Sync pivot position
+    this.yawPivot.position.copy(this.position);
+  }
 
-    const speed = MOVE_SPEED * deltaTime;
+  // ── Cleanup ───────────────────────────────────────────────
 
-    const q = yawPivot.current.quaternion;
+  /** Remove from scene and release resources. */
+  dispose() {
+    this.input.dispose();
+    if (this.animController) this.animController.dispose();
+    this.scene.remove(this.yawPivot);
+  }
+
+  // ── Internal helpers ──────────────────────────────────────
+
+  /** Rotate camera based on mouse movement. */
+  _handleMouseLook() {
+    if (!this.input.pointerLocked) return;
+
+    const { x: dx, y: dy } = this.input.consumeMouseDelta();
+    this.yawPivot.rotation.y -= dx * MOUSE_SENSITIVITY;
+    this.pitch -= dy * MOUSE_SENSITIVITY;
+    this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch));
+    this.camera.rotation.x = this.pitch;
+  }
+
+  /** Move position based on keyboard input. */
+  _handleMovement(dt) {
+    const moving = this.input.isMoving;
+
+    if (this.animController) {
+      this.animController.setMoving(moving);
+    }
+    if (!moving) return;
+
+    const speed = MOVE_SPEED * dt;
+    const q = this.yawPivot.quaternion;
+
+    // Forward and right vectors projected onto the XZ plane
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
     const rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
     fwd.y = 0;
@@ -113,131 +186,80 @@ export function Player({ scene, camera, domElement, walls, onUpdate }) {
     rgt.y = 0;
     rgt.normalize();
 
-    if (input.current.forward) position.current.addScaledVector(fwd, speed);
-    if (input.current.backward) position.current.addScaledVector(fwd, -speed);
-    if (input.current.left) position.current.addScaledVector(rgt, -speed);
-    if (input.current.right) position.current.addScaledVector(rgt, speed);
-  };
+    if (this.input.forward) this.position.addScaledVector(fwd, speed);
+    if (this.input.backward) this.position.addScaledVector(fwd, -speed);
+    if (this.input.left) this.position.addScaledVector(rgt, -speed);
+    if (this.input.right) this.position.addScaledVector(rgt, speed);
+  }
 
-  const updateAnimation = (deltaTime) => {
-    animController.current?.update(deltaTime);
-  };
+  /** Find the head bone and set the eye height from it. */
+  _computeEyeHeight() {
+    if (!this.model) return;
+    this.model.updateMatrixWorld(true);
 
-  const update = (deltaTime) => {
-    if (!loaded.current) return;
-
-    if (input.current?.consumeViewToggle()) {
-      isFPV.current = !isFPV.current;
-      applyViewSettings();
-    }
-
-    handleMouseLook();
-    handleMovement(deltaTime);
-
-    if (walls) {
-      walls.resolveCollisions(position.current);
-    }
-
-    updateAnimation(deltaTime);
-    yawPivot.current.position.copy(position.current);
-  };
-
-  // make the update function available to the parent
-  useEffect(() => {
-    if (onUpdate) onUpdate(update);
-  }, [onUpdate]);
-
-  useEffect(() => {
-    // component mount: replicate constructor logic
-    const pivot = yawPivot.current;
-    pivot.name = "PlayerYawPivot";
-    scene.add(pivot);
-
-    pivot.add(camera);
-    camera.rotation.order = "YXZ";
-
-    input.current = new InputController(domElement);
-
-    let cancelled = false;
-    const loader = new FBXLoader();
-
-    const loadModels = async () => {
-      try {
-        console.log("[Player] loading model...");
-        const skinObject = await loader.loadAsync(MODEL_PATH);
-        if (cancelled) return;
-
-        model.current = skinObject;
-        model.current.name = "PlayerSkin";
-        model.current.scale.setScalar(0.01);
-        model.current.rotation.y = Math.PI;
-
-        if (skinObject.animations?.length) {
-          console.log(
-            `[Player] ${skinObject.animations.length} animations found:`,
-            skinObject.animations.map((a) => a.name),
-          );
-        }
-
-        skinObject.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            if (child.material) {
-              const mats = Array.isArray(child.material)
-                ? child.material
-                : [child.material];
-              mats.forEach((m) => {
-                m.roughness = 0.7;
-                m.metalness = 0.3;
-              });
-            }
-          }
-        });
-
-        pivot.add(model.current);
-        animController.current = new AnimationController(model.current);
-
-        console.log("[Player] loading external animations...");
-        const [idleFBX, walkFBX] = await Promise.all([
-          loader.loadAsync(IDLE_PATH).catch(() => ({ animations: [] })),
-          loader.loadAsync(WALK_PATH).catch(() => ({ animations: [] })),
-        ]);
-
-        if (idleFBX.animations.length > 0)
-          animController.current.addAction("idle", idleFBX.animations[0]);
-        if (walkFBX.animations.length > 0)
-          animController.current.addAction("walk", walkFBX.animations[0]);
-
-        if (skinObject.animations.length > 0) {
-          skinObject.animations.forEach((anim) => {
-            const name = anim.name.toLowerCase();
-          });
-        }
-
-        computeEyeHeight();
-        applyViewSettings();
-
-        loaded.current = true;
-        console.log("[Player] model and animations loaded.");
-      } catch (err) {
-        if (!cancelled) console.error("[Player] loading error:", err);
+    let headBone = null;
+    this.model.traverse((child) => {
+      if (!headBone && child.isBone && child.name.toLowerCase().includes("head")) {
+        headBone = child;
       }
-    };
+    });
 
-    loadModels();
+    if (headBone) {
+      const worldPos = new THREE.Vector3();
+      headBone.getWorldPosition(worldPos);
+      this.eyeHeight = worldPos.y - this.yawPivot.position.y;
+      console.log(`[Player] Eye height: ${this.eyeHeight.toFixed(2)}m`);
+    }
+  }
 
-    return () => {
-      cancelled = true;
-      input.current?.dispose();
-      animController.current?.dispose();
-      scene.remove(pivot);
-    };
-  }, [scene, camera, domElement, walls]);
+  /** Position the camera for FPV or TPV mode. */
+  _applyViewSettings() {
+    if (!this.model) return;
 
-  // the component doesn't render any visible element
-  return null;
+    if (this.isFPV) {
+      this.camera.position.set(0, this.eyeHeight, 0);
+      this.model.visible = false;
+    } else {
+      this.camera.position.set(
+        TPV_OFFSET.x,
+        this.eyeHeight + TPV_OFFSET.y,
+        TPV_OFFSET.z,
+      );
+      this.model.visible = true;
+    }
+  }
 }
 
-// export the legacy class for any remaining code that uses it
-export class PlayerCharacter {}
+// ─── React Component Wrapper ────────────────────────────────
+
+/**
+ * <Player /> — thin React wrapper around PlayerCharacter.
+ *
+ * Must be placed inside a react-three-fiber <Canvas>.
+ * It creates the PlayerCharacter on mount, calls update() every
+ * frame via useFrame, and disposes on unmount.
+ *
+ * Props:
+ *   walls - optional collision provider with resolveCollisions()
+ */
+export function Player({ walls }) {
+  const { scene, camera, gl } = useThree();
+  const playerRef = useRef(null);
+
+  useEffect(() => {
+    const player = new PlayerCharacter(scene, camera, gl.domElement);
+    player.walls = walls || null;
+    player.load();
+    playerRef.current = player;
+
+    return () => player.dispose();
+  }, [scene, camera, gl, walls]);
+
+  useFrame((_, delta) => {
+    if (playerRef.current) {
+      playerRef.current.update(delta);
+    }
+  });
+
+  return null;
+}

@@ -1,137 +1,112 @@
+import * as THREE from "three";
+
 /**
  * InputController
  * ---------------
- * Gère les entrées clavier du joueur (ZQSD + Espace + souris).
- * Utilise un pattern OOP avec des accesseurs clairs.
+ * Handles keyboard (ZQSD / WASD) and mouse input for the player.
+ * Click on the canvas to lock the pointer for FPS-style mouse look.
+ * Press V to toggle between first-person and third-person view.
  */
 export class InputController {
-  /** @type {Set<string>} - touches actuellement pressées */
-  #keys = new Set();
-
-  /** @type {boolean} - indique si le pointeur est verrouillé */
-  #pointerLocked = false;
-
-  /** @type {number} - delta X de la souris ce frame */
-  #mouseDeltaX = 0;
-
-  /** @type {number} - delta Y de la souris ce frame */
-  #mouseDeltaY = 0;
-
-  /** @type {boolean} - true une seule fois par appui sur V */
-  #viewTogglePending = false;
-
-  /**
-   * @param {HTMLElement} domElement - l'élément sur lequel écouter les events
-   */
   constructor(domElement) {
-    this._domElement = domElement;
+    this.domElement = domElement;
+    this.keys = new Set();
+    this.pointerLocked = false;
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+    this.viewTogglePending = false;
 
-    this._onKeyDown = this._onKeyDown.bind(this);
-    this._onKeyUp = this._onKeyUp.bind(this);
-    this._onMouseMove = this._onMouseMove.bind(this);
-    this._onPointerLockChange = this._onPointerLockChange.bind(this);
-    this._onPointerLockError = this._onPointerLockError.bind(this);
+    // Bind event handlers
+    this._onKeyDown = (e) => {
+      this.keys.add(e.code);
+      if (e.code === "KeyV") this.viewTogglePending = true;
+    };
 
+    this._onKeyUp = (e) => {
+      this.keys.delete(e.code);
+    };
+
+    this._onMouseMove = (e) => {
+      if (this.pointerLocked) {
+        this.mouseDX += e.movementX;
+        this.mouseDY += e.movementY;
+      }
+    };
+
+    this._onPointerLockChange = () => {
+      this.pointerLocked = document.pointerLockElement === domElement;
+    };
+
+    // Attach listeners
     window.addEventListener("keydown", this._onKeyDown);
     window.addEventListener("keyup", this._onKeyUp);
     document.addEventListener("mousemove", this._onMouseMove);
     document.addEventListener("pointerlockchange", this._onPointerLockChange);
-    document.addEventListener("pointerlockerror", this._onPointerLockError);
 
-    // Clic sur le canvas pour capturer la souris
-    domElement.addEventListener("click", () => {
-      domElement.requestPointerLock();
-    });
+    // Click canvas to lock pointer
+    this._onClick = () => domElement.requestPointerLock();
+    domElement.addEventListener("click", this._onClick);
   }
 
-  // ─── Private event handlers ────────────────────────────────────────────────
+  // ── Direction getters (AZERTY + QWERTY) ───────────────────
 
-  _onKeyDown(event) {
-    this.#keys.add(event.code);
-    if (event.code === "KeyV") this.#viewTogglePending = true;
-  }
-
-  _onKeyUp(event) {
-    this.#keys.delete(event.code);
-  }
-
-  _onMouseMove(event) {
-    if (this.#pointerLocked) {
-      this.#mouseDeltaX += event.movementX;
-      this.#mouseDeltaY += event.movementY;
-    }
-  }
-
-  _onPointerLockChange() {
-    this.#pointerLocked = document.pointerLockElement === this._domElement;
-  }
-
-  _onPointerLockError() {
-    console.warn("[InputController] Pointer lock error");
-  }
-
-  // ─── Public API ────────────────────────────────────────────────────────────
-
-  /** @returns {boolean} true si la touche avant (Z) est pressée */
   get forward() {
-    return this.#keys.has("KeyZ") || this.#keys.has("KeyW");
+    return this.keys.has("KeyW") || this.keys.has("KeyZ");
   }
 
-  /** @returns {boolean} true si la touche arrière (S) est pressée */
   get backward() {
-    return this.#keys.has("KeyS");
+    return this.keys.has("KeyS");
   }
 
-  /** @returns {boolean} true si strafe gauche (Q) est pressé */
   get left() {
-    return this.#keys.has("KeyQ") || this.#keys.has("KeyA");
+    return this.keys.has("KeyA") || this.keys.has("KeyQ");
   }
 
-  /** @returns {boolean} true si strafe droite (D) est pressé */
   get right() {
-    return this.#keys.has("KeyD");
+    return this.keys.has("KeyD");
   }
 
-  /** @returns {boolean} true si le joueur se déplace */
   get isMoving() {
     return this.forward || this.backward || this.left || this.right;
   }
 
-  /** @returns {boolean} true si le pointeur est verrouillé */
-  get isPointerLocked() {
-    return this.#pointerLocked;
-  }
+  // ── One-shot consumers (call once per frame) ──────────────
 
-  /**
-   * Retourne true UNE SEULE FOIS par appui sur V (edge-triggered).
-   * @returns {boolean}
-   */
+  /** Returns true once per V-key press, then resets. */
   consumeViewToggle() {
-    const v = this.#viewTogglePending;
-    this.#viewTogglePending = false;
+    const v = this.viewTogglePending;
+    this.viewTogglePending = false;
     return v;
   }
 
-  /**
-   * Récupère et réinitialise le delta souris de ce frame.
-   * @returns {{ x: number, y: number }}
-   */
+  /** Returns accumulated mouse delta since last call, then resets. */
   consumeMouseDelta() {
-    const delta = { x: this.#mouseDeltaX, y: this.#mouseDeltaY };
-    this.#mouseDeltaX = 0;
-    this.#mouseDeltaY = 0;
+    const delta = { x: this.mouseDX, y: this.mouseDY };
+    this.mouseDX = 0;
+    this.mouseDY = 0;
     return delta;
   }
 
-  /** Nettoyage : supprime les event listeners */
+  /**
+   * Returns a normalized direction vector based on currently pressed keys.
+   * The vector is in local space (forward = -Z, right = +X).
+   */
+  getDirection() {
+    const dir = new THREE.Vector3();
+    if (this.forward) dir.z -= 1;
+    if (this.backward) dir.z += 1;
+    if (this.left) dir.x -= 1;
+    if (this.right) dir.x += 1;
+    if (dir.lengthSq() > 0) dir.normalize();
+    return dir;
+  }
+
+  /** Remove all event listeners. */
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
     window.removeEventListener("keyup", this._onKeyUp);
     document.removeEventListener("mousemove", this._onMouseMove);
-    document.removeEventListener(
-      "pointerlockchange",
-      this._onPointerLockChange,
-    );
-    document.removeEventListener("pointerlockerror", this._onPointerLockError);
+    document.removeEventListener("pointerlockchange", this._onPointerLockChange);
+    this.domElement.removeEventListener("click", this._onClick);
   }
 }

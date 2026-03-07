@@ -3,114 +3,95 @@ import * as THREE from "three";
 /**
  * AnimationController
  * -------------------
- * Gère les transitions entre les états d'animation (Idle, Walk).
- * Utilise un système de fondu (crossfade) pour des transitions fluides.
+ * Manages animation playback and smooth transitions (crossfade)
+ * between states like "idle" and "walk".
+ *
+ * Root motion (Hips/Root position tracks) is automatically stripped
+ * so animations play in-place.
  */
 export class AnimationController {
-  #mixer;
-  #actions = {}; // { idle, walk }
-  #activeAction = null;
-  #model;
-
-  static FADE_DURATION = 0.3;
-
   constructor(model) {
-    this.#model = model;
-    this.#mixer = new THREE.AnimationMixer(model);
+    this.model = model;
+    this.mixer = new THREE.AnimationMixer(model);
+    this.actions = {}; // { idle: Action, walk: Action, ... }
+    this.activeAction = null;
+    this.moving = false;
+    this.fadeDuration = 0.3;
   }
 
   /**
-   * Ajoute une animation à partir d'un fichier FBX.
-   * @param {string} name - Nom de l'action ('idle', 'walk')
-   * @param {THREE.AnimationClip} clip - Le clip chargé
+   * Register a new animation clip under the given name.
+   * Root motion is stripped automatically.
+   * If the name is "idle" and nothing is playing yet, it starts immediately.
    */
   addAction(name, clip) {
-    // On enlève le "Root Motion" (mouvement intégré à l'anim)
-    // pour que le perso reste sur place par rapport à son pivot.
-    const cleanClip = this.#stripRootMotion(clip);
-    const action = this.#mixer.clipAction(cleanClip);
+    const cleanClip = this._stripRootMotion(clip);
+    const action = this.mixer.clipAction(cleanClip);
+    action.loop = THREE.LoopRepeat;
+    this.actions[name] = action;
 
-    if (name === "idle" || name === "walk") {
-      action.loop = THREE.LoopRepeat;
-    }
-
-    this.#actions[name] = action;
-
-    // Si c'est l'idle et qu'on n'a pas encore d'action active, on le lance
-    if (name === "idle" && !this.#activeAction) {
+    // Auto-play idle if nothing is active yet
+    if (name === "idle" && !this.activeAction) {
       this.fadeTo("idle");
     }
   }
 
   /**
-   * Retire les pistes de translation sur le root bone (Hips) pour garder l'anim sur place.
+   * Crossfade to the animation with the given name.
+   * Does nothing if it's already playing or doesn't exist.
    */
-  #stripRootMotion(clip) {
-    // On clone pour ne pas modifier l'original si partagé
-    const newClip = clip.clone();
+  fadeTo(name) {
+    const next = this.actions[name];
+    if (!next || next === this.activeAction) return;
 
-    // Mixamo utilise généralement 'mixamorig:Hips' ou 'Hips' comme root.
-    // On cherche les pistes (tracks) de position qui concernent le bassin.
-    newClip.tracks = newClip.tracks.filter((track) => {
-      // Si c'est une piste de position (.position) sur le root (Hips), on l'enlève.
-      // Sauf si c'est pour l'idle ou le saut (où on veut parfois garder un peu de Y),
-      // mais ici on veut forcer le "In-Place".
+    next.reset();
+    next.enabled = true;
+    next.setEffectiveTimeScale(1);
+    next.setEffectiveWeight(1);
+
+    if (this.activeAction) {
+      next.crossFadeFrom(this.activeAction, this.fadeDuration, true);
+    }
+
+    next.play();
+    this.activeAction = next;
+  }
+
+  /**
+   * Switch between idle and walk animations based on movement state.
+   * Only triggers a transition when the state actually changes.
+   */
+  setMoving(isMoving) {
+    if (this.moving === isMoving) return;
+    this.moving = isMoving;
+    this.fadeTo(isMoving ? "walk" : "idle");
+  }
+
+  /** Advance the mixer by deltaTime seconds. Call every frame. */
+  update(dt) {
+    this.mixer.update(dt);
+  }
+
+  /** Stop all animations and clean up. */
+  dispose() {
+    this.mixer.stopAllAction();
+    this.mixer.uncacheRoot(this.model);
+  }
+
+  // ── Internal helpers ──────────────────────────────────────
+
+  /**
+   * Remove position tracks on the root bone (Hips / Root)
+   * so the animation plays in-place instead of drifting.
+   */
+  _stripRootMotion(clip) {
+    const cleaned = clip.clone();
+    cleaned.tracks = cleaned.tracks.filter((track) => {
       const isRootPosition =
         track.name.endsWith(".position") &&
         (track.name.includes("Hips") || track.name.includes("Root"));
-
       return !isRootPosition;
     });
-
-    return newClip;
-  }
-
-  /**
-   * Transition fluide vers une nouvelle animation.
-   */
-  fadeTo(name) {
-    const nextAction = this.#actions[name];
-    if (!nextAction || nextAction === this.#activeAction) return;
-
-    if (this.#activeAction) {
-      nextAction.reset();
-      nextAction.enabled = true;
-      nextAction.setEffectiveTimeScale(1);
-      nextAction.setEffectiveWeight(1);
-      nextAction.crossFadeFrom(
-        this.#activeAction,
-        AnimationController.FADE_DURATION,
-        true,
-      );
-      nextAction.play();
-    } else {
-      nextAction.reset();
-      nextAction.play();
-    }
-
-    this.#activeAction = nextAction;
-  }
-
-  #isMoving = false;
-
-  setMoving(moving) {
-    if (this.#isMoving === moving) return;
-    this.#isMoving = moving;
-
-    //on switch
-    if (!moving) {
-      this.fadeTo("idle");
-    } else {
-      this.fadeTo("walk");
-    }
-  }
-
-  update(deltaTime) {
-    this.#mixer.update(deltaTime);
-  }
-
-  dispose() {
-    this.#mixer.stopAllAction();
-    this.#mixer.uncacheRoot(this.#model);
+    return cleaned;
   }
 }
