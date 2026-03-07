@@ -1,2 +1,2 @@
 *.fbx filter=lfs diff=lfs merge=lfs -text
-src/assets/models/player/playerModel.fbx filter=lfs diff=lfs merge=lfs -text
+./public/models/player/playerModel.fbx filter=lfs diff=lfs merge=lfs -text
