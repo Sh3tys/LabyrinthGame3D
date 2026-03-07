@@ -7,15 +7,20 @@ import { AnimationController } from "../utils/AnimationController.js";
 
 // ─── Configuration ──────────────────────────────────────────
 
-const MODEL_PATH = "../../assets/playerModel/playerModel.fbx";
-const WALK_PATH = "../../assets/playerModel/playerAnimationWalk.fbx";
-const IDLE_PATH = "../../assets/playerModel/playerAnimationStop.fbx";
+const MODEL_PATH = "/models/player/playerModel.fbx";
+const WALK_PATH = "/models/player/playerAnimationWalk.fbx";
+const IDLE_PATH = "/models/player/playerAnimationStop.fbx";
 
 const MOVE_SPEED = 5;
 const MOUSE_SENSITIVITY = 0.002;
 const PITCH_LIMIT = Math.PI / 2.2;
 const FALLBACK_EYE_HEIGHT = 1.6;
 const TPV_OFFSET = new THREE.Vector3(0, 1.2, 3.5);
+
+// Smoothing: higher = snappier camera, lower = more floaty
+const SMOOTH_FACTOR = 20;
+// Clamp deltaTime to avoid physics jumps on tab-switch / frame spikes
+const MAX_DT = 0.1;
 
 // ─── PlayerCharacter Class ──────────────────────────────────
 
@@ -41,7 +46,14 @@ export class PlayerCharacter {
     this.scene = scene;
     this.camera = camera;
     this.position = new THREE.Vector3();
-    this.pitch = 0;
+
+    // Current (smoothed) rotations
+    this.currentYaw = 0;
+    this.currentPitch = 0;
+
+    // Target rotations (set instantly by mouse input, smoothed toward)
+    this.targetYaw = 0;
+    this.targetPitch = 0;
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
     this.isFPV = true;
     this.loaded = false;
@@ -121,13 +133,16 @@ export class PlayerCharacter {
   update(dt) {
     if (!this.loaded) return;
 
+    // Clamp delta time to prevent huge jumps
+    dt = Math.min(dt, MAX_DT);
+
     // Toggle FPV / TPV
     if (this.input.consumeViewToggle()) {
       this.isFPV = !this.isFPV;
       this._applyViewSettings();
     }
 
-    this._handleMouseLook();
+    this._handleMouseLook(dt);
     this._handleMovement(dt);
 
     // Collision resolution (if a wall provider is set)
@@ -155,15 +170,25 @@ export class PlayerCharacter {
 
   // ── Internal helpers ──────────────────────────────────────
 
-  /** Rotate camera based on mouse movement. */
-  _handleMouseLook() {
+  /** Rotate camera based on mouse movement with smooth interpolation. */
+  _handleMouseLook(dt) {
     if (!this.input.pointerLocked) return;
 
+    // Update target rotations from raw mouse input
     const { x: dx, y: dy } = this.input.consumeMouseDelta();
-    this.yawPivot.rotation.y -= dx * MOUSE_SENSITIVITY;
-    this.pitch -= dy * MOUSE_SENSITIVITY;
-    this.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.pitch));
-    this.camera.rotation.x = this.pitch;
+    this.targetYaw -= dx * MOUSE_SENSITIVITY;
+    this.targetPitch -= dy * MOUSE_SENSITIVITY;
+    this.targetPitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.targetPitch));
+
+    // Smoothly interpolate current rotation toward the target
+    // Using exponential decay: 1 - e^(-factor * dt) gives frame-rate-independent smoothing
+    const t = 1 - Math.exp(-SMOOTH_FACTOR * dt);
+    this.currentYaw += (this.targetYaw - this.currentYaw) * t;
+    this.currentPitch += (this.targetPitch - this.currentPitch) * t;
+
+    // Apply smoothed rotations
+    this.yawPivot.rotation.y = this.currentYaw;
+    this.camera.rotation.x = this.currentPitch;
   }
 
   /** Move position based on keyboard input. */

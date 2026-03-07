@@ -79,9 +79,14 @@ export class InputController {
     return v;
   }
 
-  /** Returns accumulated mouse delta since last call, then resets. */
+  /** Returns accumulated mouse delta since last call, clamped and then reset. */
   consumeMouseDelta() {
-    const delta = { x: this.mouseDX, y: this.mouseDY };
+    // Clamp to prevent huge jumps during frame spikes
+    const MAX = 150;
+    const delta = {
+      x: Math.max(-MAX, Math.min(MAX, this.mouseDX)),
+      y: Math.max(-MAX, Math.min(MAX, this.mouseDY)),
+    };
     this.mouseDX = 0;
     this.mouseDY = 0;
     return delta;
