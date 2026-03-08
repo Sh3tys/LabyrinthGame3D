@@ -19,7 +19,7 @@ const LabyrinthScene = () => {
     <Canvas
       camera={{ position: [0, 5, 10], fov: 60 }}
       style={{ width: "100vw", height: "100vh", background: "#08080a" }}
-      dpr={[1, 1.5]}
+      dpr={[1, 1.25]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       shadows
     >
@@ -36,7 +36,7 @@ const LabyrinthScene = () => {
         intensity={1.45}
         color="#fff4d8"
         castShadow 
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={180}
         shadow-camera-left={-50}
@@ -45,7 +45,7 @@ const LabyrinthScene = () => {
         shadow-camera-bottom={-50}
       />
       
-      <pointLight position={[0, 16, 0]} intensity={0.7} color="#9bd6ff" />
+      <pointLight position={[0, 16, 0]} intensity={0.45} color="#9bd6ff" />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[260, 260]} />

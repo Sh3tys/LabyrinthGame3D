@@ -25,7 +25,9 @@ const TPV_SHOW_MODEL_DISTANCE = 1.25;
 const ACCEL_RATE = 18;
 const DECEL_RATE = 14;
 const MIN_VELOCITY_EPSILON = 0.01;
-const TPV_CAMERA_SMOOTH = 18;
+const TPV_CAMERA_SMOOTH = 30;
+const VIEW_SWITCH_COOLDOWN = 0.08;
+const TPV_SWITCH_GRACE = 0.2;
 
 // Smoothing: higher = snappier camera, lower = more floaty
 const SMOOTH_FACTOR = 20;
@@ -91,6 +93,7 @@ export class PlayerCharacter {
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
     this.viewMode = 'FPV';
     this.loaded = false;
+    this.disposed = false;
     this.model = null;
     this.animController = null;
     this.walls = null;
@@ -105,6 +108,9 @@ export class PlayerCharacter {
     this._tmpTargetVelocity = new THREE.Vector3();
     this._tmpAnchorWorld = new THREE.Vector3();
     this._tmpDesiredWorld = new THREE.Vector3();
+    this.viewSwitchCooldown = 0;
+    this.forceTPVCameraSnap = false;
+    this.tpvSwitchGraceRemaining = 0;
 
     // Yaw pivot — parent of camera and model, rotates on Y axis
     this.yawPivot = new THREE.Object3D();
@@ -129,6 +135,8 @@ export class PlayerCharacter {
   async load() {
     try {
       const template = await loadCached(MODEL_PATH, "model");
+      if (this.disposed) return;
+
       const skin = SkeletonUtils.clone(template);
       this.model = skin;
       this.model.name = "PlayerSkin";
@@ -161,14 +169,14 @@ export class PlayerCharacter {
   }
 
   async _loadAnimationsAsync() {
-    if (!this.animController) return;
+    if (!this.animController || this.disposed) return;
 
     const [idleFBX, walkFBX] = await Promise.all([
       loadCached(IDLE_PATH, "idle").catch(() => ({ animations: [] })),
       loadCached(WALK_PATH, "walk").catch(() => ({ animations: [] })),
     ]);
 
-    if (!this.animController) return;
+    if (!this.animController || this.disposed) return;
 
     if (idleFBX.animations?.length > 0) {
       this.animController.addAction("idle", idleFBX.animations[0]);
@@ -187,13 +195,14 @@ export class PlayerCharacter {
     // Clamp delta time to prevent huge jumps
     dt = Math.min(dt, MAX_DT);
 
-    // Touche V : Cycler entre les vues (1ère, 3ème, Haut)
-    if (this.input.consumeViewToggle()) {
-      if (this.viewMode === 'FPV') this.viewMode = 'TPV';
-      else if (this.viewMode === 'TPV') this.viewMode = 'TOP';
-      else this.viewMode = 'FPV';
-      
-      this._applyViewSettings();
+    // Touche V : cycle fiable FPV -> TPV -> TOP -> FPV
+    this.viewSwitchCooldown = Math.max(0, this.viewSwitchCooldown - dt);
+    this.tpvSwitchGraceRemaining = Math.max(0, this.tpvSwitchGraceRemaining - dt);
+    if (this.input.consumeViewToggle() && this.viewSwitchCooldown <= 0) {
+      let next = "FPV";
+      if (this.viewMode === "FPV") next = "TPV";
+      else if (this.viewMode === "TPV") next = "TOP";
+      this._switchViewMode(next);
     }
 
     this._handleMouseLook(dt);
@@ -226,6 +235,7 @@ export class PlayerCharacter {
 
   /** Remove from scene and release resources. */
   dispose() {
+    this.disposed = true;
     this.input.dispose();
     if (this.animController) this.animController.dispose();
 
@@ -243,6 +253,9 @@ export class PlayerCharacter {
     }
 
     this.scene.remove(this.yawPivot);
+    this.animController = null;
+    this.model = null;
+    this.loaded = false;
   }
 
   // ── Internal helpers ──────────────────────────────────────
@@ -370,13 +383,13 @@ export class PlayerCharacter {
 
     if (this.viewMode === 'TOP') {
       // VUE DE DESSUS : map globale avec joueur au centre
-      this.scene.add(this.camera);
+      this.scene.attach(this.camera);
       this.camera.position.set(this.position.x, this.topViewHeight, this.position.z);
       this.camera.rotation.set(-Math.PI / 2, 0, 0); 
       this.model.visible = true;
     } else {
       // VUES JOUEUR : La caméra suit le personnage
-      this.yawPivot.add(this.camera);
+      this.yawPivot.attach(this.camera);
 
       if (this.viewMode === 'FPV') {
         // Vue 1ère personne
@@ -385,15 +398,19 @@ export class PlayerCharacter {
         this.model.visible = false;
       } else {
         // Vue 3ème personne
-        this.camera.position.set(
-          TPV_OFFSET.x,
-          this.eyeHeight + TPV_OFFSET.y,
-          TPV_OFFSET.z,
-        );
-        this.camera.rotation.set(this.currentPitch, 0, 0);
+        this.forceTPVCameraSnap = true;
+        this.tpvSwitchGraceRemaining = TPV_SWITCH_GRACE;
         this.model.visible = true;
       }
     }
+  }
+
+  _switchViewMode(nextMode) {
+    if (this.viewMode === nextMode) return;
+    this.viewMode = nextMode;
+    this.viewSwitchCooldown = VIEW_SWITCH_COOLDOWN;
+    this.input.clearMouseDelta();
+    this._applyViewSettings();
   }
 
   _recomputeTopViewHeight() {
@@ -443,14 +460,24 @@ export class PlayerCharacter {
     }
 
     const safeLocal = this.yawPivot.worldToLocal(desiredWorld);
-    const camT = 1 - Math.exp(-TPV_CAMERA_SMOOTH * dt);
-    this.camera.position.lerp(safeLocal, camT);
+    if (this.forceTPVCameraSnap) {
+      this.camera.position.copy(safeLocal);
+      this.forceTPVCameraSnap = false;
+    } else {
+      const camT = 1 - Math.exp(-TPV_CAMERA_SMOOTH * dt);
+      this.camera.position.lerp(safeLocal, camT);
+    }
     this.camera.rotation.set(this.currentPitch, 0, 0);
 
     if (this.topMarker) this.topMarker.visible = false;
 
     const cameraToHeadDistance = this.camera.position.distanceTo(anchorLocal);
     if (this.model) {
+      if (this.tpvSwitchGraceRemaining > 0) {
+        this.model.visible = true;
+        return;
+      }
+
       if (this.model.visible && cameraToHeadDistance < TPV_HIDE_MODEL_DISTANCE) {
         this.model.visible = false;
       } else if (!this.model.visible && cameraToHeadDistance > TPV_SHOW_MODEL_DISTANCE) {

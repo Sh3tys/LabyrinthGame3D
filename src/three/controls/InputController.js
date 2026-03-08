@@ -1,5 +1,3 @@
-import * as THREE from "three";
-
 /**
  * InputController
  * ---------------
@@ -16,13 +14,11 @@ export class InputController {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.viewTogglePending = false;
-    this.topDownTogglePending = false;
 
     // Bind event handlers
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
       if (e.code === "KeyV") this.viewTogglePending = true;
-      if (e.code === "KeyE") this.topDownTogglePending = true;
     };
 
     this._onKeyUp = (e) => {
@@ -38,13 +34,29 @@ export class InputController {
 
     this._onPointerLockChange = () => {
       this.pointerLocked = document.pointerLockElement === domElement;
+      if (!this.pointerLocked) {
+        this.clearMouseDelta();
+      }
+    };
+
+    this._clearInputState = () => {
+      this.keys.clear();
+      this.clearMouseDelta();
+    };
+
+    this._onVisibilityChange = () => {
+      if (document.hidden) {
+        this._clearInputState();
+      }
     };
 
     // Attach listeners
     window.addEventListener("keydown", this._onKeyDown);
     window.addEventListener("keyup", this._onKeyUp);
+    window.addEventListener("blur", this._clearInputState);
     document.addEventListener("mousemove", this._onMouseMove);
     document.addEventListener("pointerlockchange", this._onPointerLockChange);
+    document.addEventListener("visibilitychange", this._onVisibilityChange);
 
     // Click canvas to lock pointer
     this._onClick = () => {
@@ -86,13 +98,6 @@ export class InputController {
     return v;
   }
 
-  /** Returns true once per E-key press, then resets. */
-  consumeTopDownToggle() {
-    const e = this.topDownTogglePending;
-    this.topDownTogglePending = false;
-    return e;
-  }
-
   /** Returns accumulated mouse delta since last call, clamped and then reset. */
   consumeMouseDelta() {
     // Clamp to prevent huge jumps during frame spikes
@@ -106,30 +111,23 @@ export class InputController {
     return delta;
   }
 
-  /**
-   * Returns a normalized direction vector based on currently pressed keys.
-   * The vector is in local space (forward = -Z, right = +X).
-   */
-  getDirection() {
-    const dir = new THREE.Vector3();
-    if (this.forward) dir.z -= 1;
-    if (this.backward) dir.z += 1;
-    if (this.left) dir.x -= 1;
-    if (this.right) dir.x += 1;
-    if (dir.lengthSq() > 0) dir.normalize();
-    return dir;
-  }
-
   setPointerLockEnabled(enabled) {
     this.pointerLockEnabled = enabled;
+  }
+
+  clearMouseDelta() {
+    this.mouseDX = 0;
+    this.mouseDY = 0;
   }
 
   /** Remove all event listeners. */
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
     window.removeEventListener("keyup", this._onKeyUp);
+    window.removeEventListener("blur", this._clearInputState);
     document.removeEventListener("mousemove", this._onMouseMove);
     document.removeEventListener("pointerlockchange", this._onPointerLockChange);
+    document.removeEventListener("visibilitychange", this._onVisibilityChange);
     this.domElement.removeEventListener("click", this._onClick);
   }
 }

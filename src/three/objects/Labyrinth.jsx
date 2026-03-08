@@ -127,6 +127,13 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
   }, [wallBlocks, normalizedWidth, normalizedHeight, cellSize]);
 
   const collisionProvider = useMemo(() => {
+    const tmpStepDelta = new THREE.Vector3();
+    const tmpTryPos = new THREE.Vector3();
+    const tmpStart = new THREE.Vector3();
+    const tmpEnd = new THREE.Vector3();
+    const tmpCandidate = new THREE.Vector3();
+    const tmpSafe = new THREE.Vector3();
+
     const clampPositionInPlace = (pos, radius = PLAYER_RADIUS) => {
       pos.x = clamp(
         pos.x,
@@ -224,8 +231,8 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       if (dist <= 0) return pos;
 
       const steps = Math.max(1, Math.ceil(dist / maxStep));
-      const stepDelta = delta.clone().multiplyScalar(1 / steps);
-      const tryPos = pos.clone();
+      const stepDelta = tmpStepDelta.copy(delta).multiplyScalar(1 / steps);
+      const tryPos = tmpTryPos;
 
       for (let i = 0; i < steps; i += 1) {
         // Try full step first.
@@ -278,10 +285,10 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       radius = CAMERA_RADIUS,
       bodyHeight = CAMERA_HEIGHT,
     ) => {
-      const start = fromPos.clone();
-      const end = toPos.clone();
-      const candidate = new THREE.Vector3();
-      const safe = start.clone();
+      const start = tmpStart.copy(fromPos);
+      const end = tmpEnd.copy(toPos);
+      const candidate = tmpCandidate;
+      const safe = tmpSafe.copy(start);
 
       // Keep points inside maze limits first.
       safe.x = clamp(
@@ -306,7 +313,7 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         mazeHalfHeight - cellSize - radius,
       );
 
-      const steps = 40;
+      const steps = 24;
       for (let i = 1; i <= steps; i += 1) {
         const t = i / steps;
         candidate.lerpVectors(safe, end, t);
