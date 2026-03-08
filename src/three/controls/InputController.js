@@ -12,6 +12,7 @@ export class InputController {
     this.domElement = domElement;
     this.keys = new Set();
     this.pointerLocked = false;
+    this.pointerLockEnabled = true;
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.viewTogglePending = false;
@@ -46,7 +47,11 @@ export class InputController {
     document.addEventListener("pointerlockchange", this._onPointerLockChange);
 
     // Click canvas to lock pointer
-    this._onClick = () => domElement.requestPointerLock();
+    this._onClick = () => {
+      if (this.pointerLockEnabled) {
+        domElement.requestPointerLock();
+      }
+    };
     domElement.addEventListener("click", this._onClick);
   }
 
@@ -113,6 +118,10 @@ export class InputController {
     if (this.right) dir.x += 1;
     if (dir.lengthSq() > 0) dir.normalize();
     return dir;
+  }
+
+  setPointerLockEnabled(enabled) {
+    this.pointerLockEnabled = enabled;
   }
 
   /** Remove all event listeners. */
