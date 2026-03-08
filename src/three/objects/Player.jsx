@@ -56,8 +56,7 @@ export class PlayerCharacter {
     this.targetYaw = 0;
     this.targetPitch = 0;
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
-    this.isFPV = true;
-    this.isTopDown = false;
+    this.viewMode = 'FPV';
     this.loaded = false;
     this.model = null;
     this.animController = null;
@@ -138,16 +137,12 @@ export class PlayerCharacter {
     // Clamp delta time to prevent huge jumps
     dt = Math.min(dt, MAX_DT);
 
-    // Toggle FPV / TPV
+    // Touche V : Cycler entre les vues (1ère, 3ème, Haut)
     if (this.input.consumeViewToggle()) {
-      this.isFPV = !this.isFPV;
-      this.isTopDown = false; // Désactiver le mode haut si on change de vue
-      this._applyViewSettings();
-    }
-
-    // Touche E : basculer la vue d'en haut
-    if (this.input.consumeTopDownToggle()) {
-      this.isTopDown = !this.isTopDown;
+      if (this.viewMode === 'FPV') this.viewMode = 'TPV';
+      else if (this.viewMode === 'TPV') this.viewMode = 'TOP';
+      else this.viewMode = 'FPV';
+      
       this._applyViewSettings();
     }
 
@@ -166,6 +161,11 @@ export class PlayerCharacter {
 
     // Sync pivot position
     this.yawPivot.position.copy(this.position);
+
+    // En vue TOP, on centre la caméra sur le joueur
+    if (this.viewMode === 'TOP') {
+      this.camera.position.set(this.position.x, 20, this.position.z);
+    }
   }
 
   // ── Cleanup ───────────────────────────────────────────────
@@ -181,7 +181,7 @@ export class PlayerCharacter {
 
   /** Rotate camera based on mouse movement with smooth interpolation. */
   _handleMouseLook(dt) {
-    if (!this.input.pointerLocked || this.isTopDown) return;
+    if (!this.input.pointerLocked || this.viewMode === 'TOP') return;
 
     // Update target rotations from raw mouse input
     const { x: dx, y: dy } = this.input.consumeMouseDelta();
@@ -210,20 +210,41 @@ export class PlayerCharacter {
     if (!moving) return;
 
     const speed = MOVE_SPEED * dt;
-    const q = this.yawPivot.quaternion;
+    let fwd, rgt;
 
-    // Forward and right vectors projected onto the XZ plane
-    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
-    const rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
-    fwd.y = 0;
-    fwd.normalize();
-    rgt.y = 0;
-    rgt.normalize();
+    if (this.viewMode === 'TOP') {
+      // En vue de dessus (TOP), axes mondiaux
+      fwd = new THREE.Vector3(0, 0, -1);
+      rgt = new THREE.Vector3(1, 0, 0);
+    } else {
+      const q = this.yawPivot.quaternion;
+      // Vecteurs directionnels projetés sur le plan XZ
+      fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+      rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+      fwd.y = 0;
+      fwd.normalize();
+      rgt.y = 0;
+      rgt.normalize();
+    }
 
-    if (this.input.forward) this.position.addScaledVector(fwd, speed);
-    if (this.input.backward) this.position.addScaledVector(fwd, -speed);
-    if (this.input.left) this.position.addScaledVector(rgt, -speed);
-    if (this.input.right) this.position.addScaledVector(rgt, speed);
+    const moveDir = new THREE.Vector3();
+    if (this.input.forward) moveDir.add(fwd);
+    if (this.input.backward) moveDir.sub(fwd);
+    if (this.input.left) moveDir.sub(rgt);
+    if (this.input.right) moveDir.add(rgt);
+
+    if (moveDir.lengthSq() > 0) {
+      moveDir.normalize();
+      this.position.addScaledVector(moveDir, speed);
+
+      // En vue de dessus, on fait pivoter le modèle pour qu'il regarde vers où il va
+      if (this.viewMode === 'TOP') {
+        const lookAtAngle = Math.atan2(moveDir.x, moveDir.z);
+        this.targetYaw = lookAtAngle + Math.PI; 
+        this.currentYaw = this.targetYaw; 
+        this.yawPivot.rotation.y = this.currentYaw;
+      }
+    }
   }
 
   /** Find the head bone and set the eye height from it. */
@@ -246,28 +267,35 @@ export class PlayerCharacter {
     }
   }
 
-  /** Position the camera for FPV or TPV mode. */
+  /** Position the camera for FPV, TPV or Top-Down mode. */
   _applyViewSettings() {
     if (!this.model) return;
 
-    if (this.isTopDown) {
-      // Vue de dessus (Top-Down)
-      this.camera.position.set(TOP_OFFSET.x, TOP_OFFSET.y, TOP_OFFSET.z);
-      this.camera.rotation.set(-Math.PI / 2, 0, 0); // Regarder vers le bas
+    if (this.viewMode === 'TOP') {
+      // VUE DE DESSUS : Caméra suit le joueur depuis le ciel
+      this.scene.add(this.camera);
+      this.camera.position.set(this.position.x, 20, this.position.z); 
+      this.camera.rotation.set(-Math.PI / 2, 0, 0); 
       this.model.visible = true;
-    } else if (this.isFPV) {
-      this.camera.position.set(0, this.eyeHeight, 0);
-      this.camera.rotation.set(this.currentPitch, 0, 0);
-      this.model.visible = false;
     } else {
-      // Vue 3ème personne
-      this.camera.position.set(
-        TPV_OFFSET.x,
-        this.eyeHeight + TPV_OFFSET.y,
-        TPV_OFFSET.z,
-      );
-      this.camera.rotation.set(this.currentPitch, 0, 0);
-      this.model.visible = true;
+      // VUES JOUEUR : La caméra suit le personnage
+      this.yawPivot.add(this.camera);
+
+      if (this.viewMode === 'FPV') {
+        // Vue 1ère personne
+        this.camera.position.set(0, this.eyeHeight, 0);
+        this.camera.rotation.set(this.currentPitch, 0, 0);
+        this.model.visible = false;
+      } else {
+        // Vue 3ème personne
+        this.camera.position.set(
+          TPV_OFFSET.x,
+          this.eyeHeight + TPV_OFFSET.y,
+          TPV_OFFSET.z,
+        );
+        this.camera.rotation.set(this.currentPitch, 0, 0);
+        this.model.visible = true;
+      }
     }
   }
 }
