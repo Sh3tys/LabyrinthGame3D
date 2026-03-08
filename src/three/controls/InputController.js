@@ -15,11 +15,13 @@ export class InputController {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.viewTogglePending = false;
+    this.topDownTogglePending = false;
 
     // Bind event handlers
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
       if (e.code === "KeyV") this.viewTogglePending = true;
+      if (e.code === "KeyE") this.topDownTogglePending = true;
     };
 
     this._onKeyUp = (e) => {
@@ -77,6 +79,13 @@ export class InputController {
     const v = this.viewTogglePending;
     this.viewTogglePending = false;
     return v;
+  }
+
+  /** Returns true once per E-key press, then resets. */
+  consumeTopDownToggle() {
+    const e = this.topDownTogglePending;
+    this.topDownTogglePending = false;
+    return e;
   }
 
   /** Returns accumulated mouse delta since last call, clamped and then reset. */

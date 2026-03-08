@@ -16,6 +16,7 @@ const MOUSE_SENSITIVITY = 0.002;
 const PITCH_LIMIT = Math.PI / 2.2;
 const FALLBACK_EYE_HEIGHT = 1.6;
 const TPV_OFFSET = new THREE.Vector3(0, 1.2, 3.5);
+const TOP_OFFSET = new THREE.Vector3(0, 15, 0); // Hauteur pour la vue d'en haut
 
 // Smoothing: higher = snappier camera, lower = more floaty
 const SMOOTH_FACTOR = 20;
@@ -56,6 +57,7 @@ export class PlayerCharacter {
     this.targetPitch = 0;
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
     this.isFPV = true;
+    this.isTopDown = false;
     this.loaded = false;
     this.model = null;
     this.animController = null;
@@ -139,6 +141,13 @@ export class PlayerCharacter {
     // Toggle FPV / TPV
     if (this.input.consumeViewToggle()) {
       this.isFPV = !this.isFPV;
+      this.isTopDown = false; // Désactiver le mode haut si on change de vue
+      this._applyViewSettings();
+    }
+
+    // Touche E : basculer la vue d'en haut
+    if (this.input.consumeTopDownToggle()) {
+      this.isTopDown = !this.isTopDown;
       this._applyViewSettings();
     }
 
@@ -172,7 +181,7 @@ export class PlayerCharacter {
 
   /** Rotate camera based on mouse movement with smooth interpolation. */
   _handleMouseLook(dt) {
-    if (!this.input.pointerLocked) return;
+    if (!this.input.pointerLocked || this.isTopDown) return;
 
     // Update target rotations from raw mouse input
     const { x: dx, y: dy } = this.input.consumeMouseDelta();
@@ -241,15 +250,23 @@ export class PlayerCharacter {
   _applyViewSettings() {
     if (!this.model) return;
 
-    if (this.isFPV) {
+    if (this.isTopDown) {
+      // Vue de dessus (Top-Down)
+      this.camera.position.set(TOP_OFFSET.x, TOP_OFFSET.y, TOP_OFFSET.z);
+      this.camera.rotation.set(-Math.PI / 2, 0, 0); // Regarder vers le bas
+      this.model.visible = true;
+    } else if (this.isFPV) {
       this.camera.position.set(0, this.eyeHeight, 0);
+      this.camera.rotation.set(this.currentPitch, 0, 0);
       this.model.visible = false;
     } else {
+      // Vue 3ème personne
       this.camera.position.set(
         TPV_OFFSET.x,
         this.eyeHeight + TPV_OFFSET.y,
         TPV_OFFSET.z,
       );
+      this.camera.rotation.set(this.currentPitch, 0, 0);
       this.model.visible = true;
     }
   }
