@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Wall } from "./Wall.jsx";
+import { ModuleFactory } from "./MazeModules.js";
 import * as THREE from "three";
 
 const WALL_HEIGHT = 4.5;
@@ -90,8 +90,8 @@ function areLinked(links, ax, ay, bx, by) {
   return neighbors ? neighbors.has(b) : false;
 }
 
-function buildWallBlocks(cols, rows, corridorWidth, wallThickness, links) {
-  const cellPitch = corridorWidth + wallThickness;
+function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
+  const cellPitch = cellSize;
   const wallSpan = cellPitch;
   const blocks = [];
 
@@ -106,25 +106,25 @@ function buildWallBlocks(cols, rows, corridorWidth, wallThickness, links) {
       // Outer ring walls
       if (x === 0) {
         blocks.push({
-          position: [cx - corridorWidth / 2 - wallThickness / 2, WALL_HEIGHT / 2, cz],
+          position: [cx - cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
       if (x === cols - 1) {
         blocks.push({
-          position: [cx + corridorWidth / 2 + wallThickness / 2, WALL_HEIGHT / 2, cz],
+          position: [cx + cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
       if (y === 0) {
         blocks.push({
-          position: [cx, WALL_HEIGHT / 2, cz - corridorWidth / 2 - wallThickness / 2],
+          position: [cx, WALL_HEIGHT / 2, cz - cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
       if (y === rows - 1) {
         blocks.push({
-          position: [cx, WALL_HEIGHT / 2, cz + corridorWidth / 2 + wallThickness / 2],
+          position: [cx, WALL_HEIGHT / 2, cz + cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
@@ -132,14 +132,14 @@ function buildWallBlocks(cols, rows, corridorWidth, wallThickness, links) {
       // Internal walls where no graph link exists
       if (x < cols - 1 && !areLinked(links, x, y, x + 1, y)) {
         blocks.push({
-          position: [cx + corridorWidth / 2 + wallThickness / 2, WALL_HEIGHT / 2, cz],
+          position: [cx + cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
 
       if (y < rows - 1 && !areLinked(links, x, y, x, y + 1)) {
         blocks.push({
-          position: [cx, WALL_HEIGHT / 2, cz + corridorWidth / 2 + wallThickness / 2],
+          position: [cx, WALL_HEIGHT / 2, cz + cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
@@ -162,13 +162,36 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     [cols, rows],
   );
 
+  const mazeLayout = useMemo(() => {
+    const mods = [];
+    const cellPitch = cellSize;
+    const cellCenterX = (x) => (x - (cols - 1) / 2) * cellPitch;
+    const cellCenterZ = (y) => (y - (rows - 1) / 2) * cellPitch;
+
+    for (let y = 0; y < rows; y += 1) {
+      for (let x = 0; x < cols; x += 1) {
+        const cx = cellCenterX(x);
+        const cz = cellCenterZ(y);
+
+        const top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
+        const right = x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
+        const bottom = y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
+        const left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
+
+        const module = ModuleFactory.create(x, y, cx, cz, cellSize, WALL_HEIGHT, { top, right, bottom, left });
+        mods.push(module);
+      }
+    }
+    return { modules: mods, cellPitch };
+  }, [cols, rows, cellSize, mazeGraph.links]);
+
   const wallLayout = useMemo(
-    () => buildWallBlocks(cols, rows, cellSize, WALL_THICKNESS, mazeGraph.links),
+    () => buildWallCollisions(cols, rows, cellSize, 0.4, mazeGraph.links),
     [cols, rows, cellSize, mazeGraph.links],
   );
 
   const wallBlocks = wallLayout.blocks;
-  const cellPitch = wallLayout.cellPitch;
+  const cellPitch = mazeLayout.cellPitch;
 
   const walkHalfWidth = ((cols - 1) * cellPitch) / 2 + cellSize / 2;
   const walkHalfHeight = ((rows - 1) * cellPitch) / 2 + cellSize / 2;
@@ -419,14 +442,28 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
 
   return (
     <group>
-      {wallBlocks.map((block, index) => {
+      {mazeLayout.modules.map((mod, index) => {
+        const faces = mod.getFaces();
         return (
-          <Wall
-            key={`wall-${index}`}
-            position={block.position}
-            size={block.size}
-            color="#555"
-          />
+          <group key={`module-${index}`} position={[mod.px, 0, mod.pz]}>
+            {faces.map((face, fIndex) => (
+              <mesh
+                key={`face-${fIndex}`}
+                position={face.position}
+                rotation={face.rotation}
+                castShadow
+                receiveShadow
+              >
+                <planeGeometry args={face.size} />
+                <meshStandardMaterial
+                  color="#555"
+                  side={THREE.FrontSide}
+                  roughness={0.8}
+                  metalness={0.2}
+                />
+              </mesh>
+            ))}
+          </group>
         );
       })}
     </group>
