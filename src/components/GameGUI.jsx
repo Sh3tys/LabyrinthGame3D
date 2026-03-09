@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import './GameGUI.css';
 import LabyrinthScene from '../three/scenes/LabyrinthScene';
+import { prewarmPlayerAssets } from '../three/objects/Player.jsx';
 
 class GameGUI extends Component {
   constructor(props) {
@@ -18,6 +19,10 @@ class GameGUI extends Component {
 // Lance la partie 3D
   startGame() {
     this.setState({ isPlaying: true });
+  }
+
+  componentDidMount() {
+    prewarmPlayerAssets();
   }
 
 // Affiche le menu avec le bouton Play
