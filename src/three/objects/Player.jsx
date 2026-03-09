@@ -1,10 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { InputController } from "../controls/InputController.js";
 import { AnimationController } from "../utils/AnimationController.js";
+import { loadCached } from "../utils/preloadAssets.js";
 
 // ─── Configuration ──────────────────────────────────────────
 
@@ -34,28 +34,7 @@ const SMOOTH_FACTOR = 20;
 // Clamp deltaTime to avoid physics jumps on tab-switch / frame spikes
 const MAX_DT = 0.1;
 
-const sharedLoader = new FBXLoader();
-const assetCache = {
-  model: null,
-  idle: null,
-  walk: null,
-};
 
-function loadCached(path, key) {
-  if (!assetCache[key]) {
-    assetCache[key] = sharedLoader.loadAsync(path).catch((err) => {
-      assetCache[key] = null;
-      throw err;
-    });
-  }
-  return assetCache[key];
-}
-
-export function prewarmPlayerAssets() {
-  loadCached(MODEL_PATH, "model").catch(() => null);
-  loadCached(IDLE_PATH, "idle").catch(() => null);
-  loadCached(WALK_PATH, "walk").catch(() => null);
-}
 
 // ─── PlayerCharacter Class ──────────────────────────────────
 
@@ -366,7 +345,7 @@ export class PlayerCharacter {
       const worldPos = new THREE.Vector3();
       headBone.getWorldPosition(worldPos);
       this.eyeHeight = worldPos.y - this.yawPivot.position.y;
-      console.log(`[Player] Eye height: ${this.eyeHeight.toFixed(2)}m`);
+      // eyeHeight set from head bone
     }
   }
 
