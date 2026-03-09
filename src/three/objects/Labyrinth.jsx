@@ -7,124 +7,190 @@ const PLAYER_RADIUS = 0.4;
 const PLAYER_HEIGHT = 2.0;
 const CAMERA_RADIUS = 0.25;
 const CAMERA_HEIGHT = 0.8;
+const WALL_THICKNESS = 1.0;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function keyFor(x, y) {
+  return `${x},${y}`;
+}
+
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+}
+
 /**
- * Generates a random maze using Recursive Backtracking.
- * 1 = Wall, 0 = Path
+ * Maze generation using a graph (recursive-backtracking over cell nodes),
+ * without constructing a binary matrix.
  */
-function generateMaze(width, height) {
-  const maze = Array.from({ length: height }, () => Array(width).fill(1));
+function generateMazeGraph(cols, rows) {
+  const visited = new Set();
+  const links = new Map();
+  const stack = [{ x: 0, y: 0 }];
+  visited.add(keyFor(0, 0));
+  links.set(keyFor(0, 0), new Set());
 
-  function walk(x, y) {
-    maze[y][x] = 0;
+  const directions = [
+    { dx: 1, dy: 0 },
+    { dx: -1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: 0, dy: -1 },
+  ];
 
-    const dirs = [
-      [0, -2], [0, 2], [-2, 0], [2, 0]
-    ].sort(() => Math.random() - 0.5);
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1];
+    const candidates = [];
 
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx;
-      const ny = y + dy;
+    for (const dir of directions) {
+      const nx = current.x + dir.dx;
+      const ny = current.y + dir.dy;
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      if (!visited.has(keyFor(nx, ny))) {
+        candidates.push({ x: nx, y: ny });
+      }
+    }
 
-      if (ny >= 0 && ny < height && nx >= 0 && nx < width && maze[ny][nx] === 1) {
-        maze[y + dy / 2][x + dx / 2] = 0;
-        walk(nx, ny);
+    if (candidates.length === 0) {
+      stack.pop();
+      continue;
+    }
+
+    shuffleInPlace(candidates);
+    const next = candidates[0];
+    const a = keyFor(current.x, current.y);
+    const b = keyFor(next.x, next.y);
+
+    if (!links.has(a)) links.set(a, new Set());
+    if (!links.has(b)) links.set(b, new Set());
+
+    links.get(a).add(b);
+    links.get(b).add(a);
+
+    visited.add(b);
+    stack.push(next);
+  }
+
+  return {
+    links,
+    startCell: { x: 0, y: 0 },
+  };
+}
+
+function areLinked(links, ax, ay, bx, by) {
+  const a = keyFor(ax, ay);
+  const b = keyFor(bx, by);
+  const neighbors = links.get(a);
+  return neighbors ? neighbors.has(b) : false;
+}
+
+function buildWallBlocks(cols, rows, corridorWidth, wallThickness, links) {
+  const cellPitch = corridorWidth + wallThickness;
+  const wallSpan = cellPitch;
+  const blocks = [];
+
+  const cellCenterX = (x) => (x - (cols - 1) / 2) * cellPitch;
+  const cellCenterZ = (y) => (y - (rows - 1) / 2) * cellPitch;
+
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      const cx = cellCenterX(x);
+      const cz = cellCenterZ(y);
+
+      // Outer ring walls
+      if (x === 0) {
+        blocks.push({
+          position: [cx - corridorWidth / 2 - wallThickness / 2, WALL_HEIGHT / 2, cz],
+          size: [wallThickness, WALL_HEIGHT, wallSpan],
+        });
+      }
+      if (x === cols - 1) {
+        blocks.push({
+          position: [cx + corridorWidth / 2 + wallThickness / 2, WALL_HEIGHT / 2, cz],
+          size: [wallThickness, WALL_HEIGHT, wallSpan],
+        });
+      }
+      if (y === 0) {
+        blocks.push({
+          position: [cx, WALL_HEIGHT / 2, cz - corridorWidth / 2 - wallThickness / 2],
+          size: [wallSpan, WALL_HEIGHT, wallThickness],
+        });
+      }
+      if (y === rows - 1) {
+        blocks.push({
+          position: [cx, WALL_HEIGHT / 2, cz + corridorWidth / 2 + wallThickness / 2],
+          size: [wallSpan, WALL_HEIGHT, wallThickness],
+        });
+      }
+
+      // Internal walls where no graph link exists
+      if (x < cols - 1 && !areLinked(links, x, y, x + 1, y)) {
+        blocks.push({
+          position: [cx + corridorWidth / 2 + wallThickness / 2, WALL_HEIGHT / 2, cz],
+          size: [wallThickness, WALL_HEIGHT, wallSpan],
+        });
+      }
+
+      if (y < rows - 1 && !areLinked(links, x, y, x, y + 1)) {
+        blocks.push({
+          position: [cx, WALL_HEIGHT / 2, cz + corridorWidth / 2 + wallThickness / 2],
+          size: [wallSpan, WALL_HEIGHT, wallThickness],
+        });
       }
     }
   }
 
-  walk(1, 1);
-
-  // Keep an explicit solid outer ring so the maze is always closed.
-  for (let x = 0; x < width; x += 1) {
-    maze[0][x] = 1;
-    maze[height - 1][x] = 1;
-  }
-  for (let y = 0; y < height; y += 1) {
-    maze[y][0] = 1;
-    maze[y][width - 1] = 1;
-  }
-
-  // Guaranteed valid spawn cell.
-  maze[1][1] = 0;
-  return maze;
+  return {
+    blocks,
+    cellPitch,
+  };
 }
 
 export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
-  // Recursive-backtracking works best with odd dimensions.
-  const normalizedWidth = width % 2 === 0 ? width + 1 : width;
-  const normalizedHeight = height % 2 === 0 ? height + 1 : height;
-  const maze = useMemo(
-    () => generateMaze(normalizedWidth, normalizedHeight),
-    [normalizedWidth, normalizedHeight],
+  // Graph-based generation uses cell counts directly.
+  const cols = Math.max(5, width);
+  const rows = Math.max(5, height);
+
+  const mazeGraph = useMemo(
+    () => generateMazeGraph(cols, rows),
+    [cols, rows],
   );
 
-  const mazeHalfWidth = (normalizedWidth * cellSize) / 2;
-  const mazeHalfHeight = (normalizedHeight * cellSize) / 2;
+  const wallLayout = useMemo(
+    () => buildWallBlocks(cols, rows, cellSize, WALL_THICKNESS, mazeGraph.links),
+    [cols, rows, cellSize, mazeGraph.links],
+  );
 
-  // Merge contiguous wall cells into larger rectangular blocks.
-  const wallBlocks = useMemo(() => {
-    const visited = Array.from({ length: normalizedHeight }, () => Array(normalizedWidth).fill(false));
-    const blocks = [];
+  const wallBlocks = wallLayout.blocks;
+  const cellPitch = wallLayout.cellPitch;
 
-    for (let y = 0; y < normalizedHeight; y += 1) {
-      for (let x = 0; x < normalizedWidth; x += 1) {
-        if (maze[y][x] !== 1 || visited[y][x]) continue;
+  const walkHalfWidth = ((cols - 1) * cellPitch) / 2 + cellSize / 2;
+  const walkHalfHeight = ((rows - 1) * cellPitch) / 2 + cellSize / 2;
 
-        let runWidth = 0;
-        while (
-          x + runWidth < normalizedWidth
-          && maze[y][x + runWidth] === 1
-          && !visited[y][x + runWidth]
-        ) {
-          runWidth += 1;
-        }
-
-        let runHeight = 1;
-        let growing = true;
-        while (y + runHeight < normalizedHeight && growing) {
-          for (let ix = 0; ix < runWidth; ix += 1) {
-            if (maze[y + runHeight][x + ix] !== 1 || visited[y + runHeight][x + ix]) {
-              growing = false;
-              break;
-            }
-          }
-          if (growing) runHeight += 1;
-        }
-
-        for (let zy = 0; zy < runHeight; zy += 1) {
-          for (let ix = 0; ix < runWidth; ix += 1) {
-            visited[y + zy][x + ix] = true;
-          }
-        }
-
-        blocks.push({ x, y, width: runWidth, height: runHeight });
-      }
-    }
-
-    return blocks;
-  }, [maze, normalizedWidth, normalizedHeight]);
-
-  // Collisions: simple AABB check for the player
+  // Collisions from wall blocks.
   const wallBoxes = useMemo(() => {
     const boxes = [];
     wallBlocks.forEach((block) => {
-      const minX = (block.x - normalizedWidth / 2) * cellSize - cellSize / 2;
-      const minZ = (block.y - normalizedHeight / 2) * cellSize - cellSize / 2;
-      const maxX = minX + block.width * cellSize;
-      const maxZ = minZ + block.height * cellSize;
+      const [px, py, pz] = block.position;
+      const [sx, sy, sz] = block.size;
+      const minX = px - sx / 2;
+      const minZ = pz - sz / 2;
+      const maxX = px + sx / 2;
+      const maxZ = pz + sz / 2;
 
       boxes.push(new THREE.Box3(
-        new THREE.Vector3(minX, 0, minZ),
-        new THREE.Vector3(maxX, WALL_HEIGHT, maxZ),
+        new THREE.Vector3(minX, py - sy / 2, minZ),
+        new THREE.Vector3(maxX, py + sy / 2, maxZ),
       ));
     });
     return boxes;
-  }, [wallBlocks, normalizedWidth, normalizedHeight, cellSize]);
+  }, [wallBlocks]);
 
   const collisionProvider = useMemo(() => {
     const tmpStepDelta = new THREE.Vector3();
@@ -137,13 +203,13 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     const clampPositionInPlace = (pos, radius = PLAYER_RADIUS) => {
       pos.x = clamp(
         pos.x,
-        -mazeHalfWidth + cellSize + radius,
-        mazeHalfWidth - cellSize - radius,
+        -walkHalfWidth + radius,
+        walkHalfWidth - radius,
       );
       pos.z = clamp(
         pos.z,
-        -mazeHalfHeight + cellSize + radius,
-        mazeHalfHeight - cellSize - radius,
+        -walkHalfHeight + radius,
+        walkHalfHeight - radius,
       );
       return pos;
     };
@@ -293,24 +359,24 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       // Keep points inside maze limits first.
       safe.x = clamp(
         safe.x,
-        -mazeHalfWidth + cellSize + radius,
-        mazeHalfWidth - cellSize - radius,
+        -walkHalfWidth + radius,
+        walkHalfWidth - radius,
       );
       safe.z = clamp(
         safe.z,
-        -mazeHalfHeight + cellSize + radius,
-        mazeHalfHeight - cellSize - radius,
+        -walkHalfHeight + radius,
+        walkHalfHeight - radius,
       );
 
       end.x = clamp(
         end.x,
-        -mazeHalfWidth + cellSize + radius,
-        mazeHalfWidth - cellSize - radius,
+        -walkHalfWidth + radius,
+        walkHalfWidth - radius,
       );
       end.z = clamp(
         end.z,
-        -mazeHalfHeight + cellSize + radius,
-        mazeHalfHeight - cellSize - radius,
+        -walkHalfHeight + radius,
+        walkHalfHeight - radius,
       );
 
       const steps = 24;
@@ -330,20 +396,22 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     },
 
     getMazeSize: () => ({
-      width: normalizedWidth,
-      height: normalizedHeight,
-      cellSize,
-      centerX: -cellSize / 2,
-      centerZ: -cellSize / 2,
+      width: cols,
+      height: rows,
+      cellSize: cellPitch,
+      centerX: 0,
+      centerZ: 0,
+      worldWidth: walkHalfWidth * 2,
+      worldHeight: walkHalfHeight * 2,
     }),
 
     getSpawnPoint: () => ({
-      x: (1 - normalizedWidth / 2) * cellSize,
+      x: (mazeGraph.startCell.x - (cols - 1) / 2) * cellPitch,
       y: 0,
-      z: (1 - normalizedHeight / 2) * cellSize,
+      z: (mazeGraph.startCell.y - (rows - 1) / 2) * cellPitch,
     }),
     };
-  }, [wallBoxes, cellSize, mazeHalfWidth, mazeHalfHeight, normalizedWidth, normalizedHeight]);
+  }, [wallBoxes, cols, rows, cellPitch, walkHalfWidth, walkHalfHeight, mazeGraph.startCell.x, mazeGraph.startCell.y]);
 
   React.useEffect(() => {
     if (onReady) onReady(collisionProvider);
@@ -351,17 +419,12 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
 
   return (
     <group>
-      {wallBlocks.map((block) => {
-        const sizeX = block.width * cellSize;
-        const sizeZ = block.height * cellSize;
-        const centerX = ((block.x + block.width / 2 - 0.5) - normalizedWidth / 2) * cellSize;
-        const centerZ = ((block.y + block.height / 2 - 0.5) - normalizedHeight / 2) * cellSize;
-
+      {wallBlocks.map((block, index) => {
         return (
           <Wall
-            key={`${block.x}-${block.y}-${block.width}-${block.height}`}
-            position={[centerX, WALL_HEIGHT / 2, centerZ]}
-            size={[sizeX, WALL_HEIGHT, sizeZ]}
+            key={`wall-${index}`}
+            position={block.position}
+            size={block.size}
             color="#555"
           />
         );
