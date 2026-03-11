@@ -27,16 +27,16 @@ const LabyrinthScene = () => {
       <color attach="background" args={["#0d1117"]} />
       {/* Fog further away so we can actually see the maze */}
       <fog attach="fog" args={["#0d1117", 25, 160]} />
-      
+
       <ambientLight intensity={0.55} color="#f2f4ff" />
       <hemisphereLight intensity={0.5} color="#dbe8ff" groundColor="#1f2b38" />
-      
+
       {/* Main sun-like light for readable depth and shadows */}
       <directionalLight
         position={[16, 26, 10]}
         intensity={1.45}
         color="#fff4d8"
-        castShadow 
+        castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={180}
@@ -45,15 +45,24 @@ const LabyrinthScene = () => {
         shadow-camera-top={50}
         shadow-camera-bottom={-50}
       />
-      
+
       <pointLight position={[0, 16, 0]} intensity={0.45} color="#9bd6ff" />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[260, 260]} />
-        <meshStandardMaterial color="#232c38" roughness={0.9} metalness={0.03} />
+        <meshStandardMaterial
+          color="#232c38"
+          roughness={0.9}
+          metalness={0.03}
+        />
       </mesh>
 
-      <Labyrinth width={21} height={21} cellSize={3} onReady={handleLabyrinthReady} />
+      <Labyrinth
+        width={21}
+        height={21}
+        cellSize={3}
+        onReady={handleLabyrinthReady}
+      />
 
       {walls && spawn ? <Player walls={walls} initialPosition={spawn} /> : null}
     </Canvas>
