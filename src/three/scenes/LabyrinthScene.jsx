@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Canvas } from "@react-three/fiber";
+import * as THREE from "three";
 import { Player } from "../objects/Player.jsx";
 import { Labyrinth } from "../objects/Labyrinth.jsx";
 
@@ -21,7 +22,7 @@ const LabyrinthScene = () => {
       style={{ width: "100vw", height: "100vh", background: "#08080a" }}
       dpr={[1, 1.25]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
-      shadows
+      shadows={{ type: THREE.PCFShadowMap }}
     >
       <color attach="background" args={["#0d1117"]} />
       {/* Fog further away so we can actually see the maze */}
