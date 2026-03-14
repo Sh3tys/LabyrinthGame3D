@@ -34,7 +34,7 @@ function FPSTracker({ domRef }) {
   return null;
 }
 
-const LabyrinthScene = () => {
+const LabyrinthScene = ({ onExit }) => {
   const [walls, setWalls] = useState(null);
   const [spawn, setSpawn] = useState(null);
   const fpsRef = useRef(null);
@@ -104,7 +104,7 @@ const LabyrinthScene = () => {
         />
 
         {walls && spawn ? (
-          <Player walls={walls} initialPosition={spawn} />
+          <Player walls={walls} initialPosition={spawn} onExit={onExit} />
         ) : null}
         {SHOW_FPS && <FPSTracker domRef={fpsRef} />}
       </Canvas>

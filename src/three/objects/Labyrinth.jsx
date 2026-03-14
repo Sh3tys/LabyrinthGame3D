@@ -80,6 +80,7 @@ function generateMazeGraph(cols, rows) {
   return {
     links,
     startCell: { x: 0, y: 0 },
+    exitCell: { x: cols - 1, y: rows - 1 },
   };
 }
 
@@ -103,14 +104,15 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
       const cx = cellCenterX(x);
       const cz = cellCenterZ(y);
 
-      // Outer ring walls
+      // Outer ring walls, sauf ouverture à la sortie (bas droite)
+      const isExit = (x === cols - 1 && y === rows - 1);
       if (x === 0) {
         blocks.push({
           position: [cx - cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
-      if (x === cols - 1) {
+      if (x === cols - 1 && !isExit) {
         blocks.push({
           position: [cx + cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
@@ -122,7 +124,7 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
-      if (y === rows - 1) {
+      if (y === rows - 1 && !isExit) {
         blocks.push({
           position: [cx, WALL_HEIGHT / 2, cz + cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
@@ -435,6 +437,11 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         x: (mazeGraph.startCell.x - (cols - 1) / 2) * cellPitch,
         y: 0,
         z: (mazeGraph.startCell.y - (rows - 1) / 2) * cellPitch,
+      }),
+      getExitPoint: () => ({
+        x: (mazeGraph.exitCell.x - (cols - 1) / 2) * cellPitch,
+        y: 0,
+        z: (mazeGraph.exitCell.y - (rows - 1) / 2) * cellPitch,
       }),
     };
   }, [

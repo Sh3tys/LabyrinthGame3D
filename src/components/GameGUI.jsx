@@ -6,25 +6,27 @@ import { prewarmPlayerAssets } from "../three/utils/preloadAssets.js";
 class GameGUI extends Component {
   constructor(props) {
     super(props);
-
-    // État simple : est-on en train de jouer ?
     this.state = {
       isPlaying: false,
       elapsedSeconds: 0,
+      hasWon: false,
     };
-
     this.timerInterval = null;
-
-    // Liaison de l'événement clic
     this.startGame = this.startGame.bind(this);
+    this.handleGameExit = this.handleGameExit.bind(this);
   }
 
   // Lance la partie 3D
   startGame() {
-    this.setState({ isPlaying: true, elapsedSeconds: 0 });
+    this.setState({ isPlaying: true, elapsedSeconds: 0, hasWon: false });
     this.timerInterval = setInterval(() => {
       this.setState((prev) => ({ elapsedSeconds: prev.elapsedSeconds + 1 }));
     }, 1000);
+  }
+
+  handleGameExit() {
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.setState({ hasWon: true });
   }
 
   componentDidMount() {
@@ -57,9 +59,16 @@ class GameGUI extends Component {
   render() {
     return (
       <div className="game-gui-container">
-        {this.state.isPlaying ? (
+        {this.state.hasWon ? (
+          <div className="menu-layout">
+            <h1>Bravo !</h1>
+            <p>Tu as trouvé la sortie en {this.formatTime(this.state.elapsedSeconds)} !</p>
+            <button className="play-button" onClick={this.startGame}>Rejouer</button>
+          </div>
+        ) : this.state.isPlaying ? (
           <>
-            <LabyrinthScene />
+            {/* On injecte le callback dans LabyrinthScene via une prop */}
+            <LabyrinthScene onExit={this.handleGameExit} />
             <div className="timer-overlay">
               {this.formatTime(this.state.elapsedSeconds)}
             </div>
