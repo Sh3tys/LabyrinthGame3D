@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './GameGUI.css';
 import LabyrinthScene from '../three/scenes/LabyrinthScene';
-import { prewarmPlayerAssets } from '../three/objects/Player.jsx';
+import { prewarmPlayerAssets } from '../three/utils/preloadAssets.js';
 
 class GameGUI extends Component {
   constructor(props) {
