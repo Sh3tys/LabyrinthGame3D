@@ -178,12 +178,16 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         const cx = cellCenterX(x);
         const cz = cellCenterZ(y);
 
-        const top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
-        const right =
-          x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
-        const bottom =
-          y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
-        const left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
+        let top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
+        let right = x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
+        let bottom = y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
+        let left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
+
+        // Pour la cellule de sortie (bas droite), on force l'ouverture EST et SUD
+        if (x === cols - 1 && y === rows - 1) {
+          right = true;
+          bottom = true;
+        }
 
         const module = ModuleFactory.create(
           x,
