@@ -70,7 +70,7 @@ export class InputController {
   // ── Direction getters ───────────────────
 
   get forward() {
-    return this.keys.has("KeyZ");
+    return this.keys.has("KeyW");
   }
 
   get backward() {
@@ -78,7 +78,7 @@ export class InputController {
   }
 
   get left() {
-    return this.keys.has("KeyQ");
+    return this.keys.has("KeyA");
   }
 
   get right() {
