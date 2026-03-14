@@ -11,6 +11,10 @@ function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
   const lastTime = useRef(null);
 
+  useFrame((state) => {
+    console.log("Draw calls:", state.gl.info.render.calls);
+  });
+
   useFrame(() => {
     const now = performance.now();
 
