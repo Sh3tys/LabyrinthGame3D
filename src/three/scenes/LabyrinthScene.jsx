@@ -11,10 +11,6 @@ function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
   const lastTime = useRef(null);
 
-  useFrame((state) => {
-    console.log("Draw calls:", state.gl.info.render.calls);
-  });
-
   useFrame(() => {
     const now = performance.now();
 
@@ -58,15 +54,7 @@ const LabyrinthScene = () => {
         style={{ width: "100vw", height: "100vh", background: "#08080a" }}
         dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        shadows
-        onCreated={({ gl }) => {
-          gl.shadowMap.enabled = true;
-          gl.shadowMap.type = THREE.PCFSoftShadowMap;
-
-          // Static maze = shadows don’t need updates every frame
-          gl.shadowMap.autoUpdate = false;
-          gl.shadowMap.needsUpdate = true;
-        }}
+        shadows={{ type: THREE.PCFShadowMap }}
       >
         <color attach="background" args={["#0d1117"]} />
         {/* Fog further away so we can actually see the maze */}
