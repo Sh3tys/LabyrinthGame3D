@@ -68,18 +68,21 @@ const LabyrinthScene = () => {
         />
 
         {/* Main sun-like light for readable depth and shadows */}
+        <ambientLight intensity={0.25} />
+
         <directionalLight
-          position={[16, 26, 10]}
-          intensity={1.45}
-          color="#fff4d8"
+          position={[0, 45, 5]}
+          intensity={1.2}
           castShadow
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-left={-42}
+          shadow-camera-right={42}
+          shadow-camera-top={42}
+          shadow-camera-bottom={-42}
           shadow-camera-near={1}
-          shadow-camera-far={180}
-          shadow-camera-left={-50}
-          shadow-camera-right={50}
-          shadow-camera-top={50}
-          shadow-camera-bottom={-50}
+          shadow-camera-far={80}
+          shadow-bias={-0.0001}
         />
 
         <pointLight position={[0, 16, 0]} intensity={0.45} color="#9bd6ff" />
