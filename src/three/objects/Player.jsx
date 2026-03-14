@@ -508,10 +508,12 @@ export class PlayerCharacter {
  * Props:
  *   walls - optional collision provider with resolveCollisions()
  */
-export function Player({ walls, initialPosition = [0, 0, 0] }) {
+export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
   const { scene, camera, gl } = useThree();
   const playerRef = useRef(null);
   const [startX, startY, startZ] = initialPosition;
+  const exitRef = useRef(null);
+  const hasExited = useRef(false);
 
   useEffect(() => {
     const player = new PlayerCharacter(scene, camera, gl.domElement);
@@ -525,8 +527,26 @@ export function Player({ walls, initialPosition = [0, 0, 0] }) {
   useEffect(() => {
     if (playerRef.current) {
       playerRef.current.walls = walls || null;
+      // Récupère la position de sortie si possible
+      if (walls && typeof walls.getExitPoint === 'function') {
+        exitRef.current = walls.getExitPoint();
+      }
     }
   }, [walls]);
+
+  useFrame(() => {
+    if (!playerRef.current || !exitRef.current || hasExited.current) return;
+    const pos = playerRef.current.position;
+    const exit = exitRef.current;
+    // Rayon de tolérance pour "sortir" (évite d'être trop strict)
+    const tolerance = 1.0;
+    const dx = pos.x - exit.x;
+    const dz = pos.z - exit.z;
+    if (Math.sqrt(dx * dx + dz * dz) < tolerance) {
+      hasExited.current = true;
+      if (typeof onExit === 'function') onExit();
+    }
+  });
 
   useFrame((_, delta) => {
     if (playerRef.current) {
