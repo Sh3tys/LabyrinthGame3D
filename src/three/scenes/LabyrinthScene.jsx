@@ -9,15 +9,23 @@ const SHOW_FPS = true;
 
 function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
-  const lastTime = useRef(performance.now());
+  const lastTime = useRef(null);
 
   useFrame(() => {
-    frameCount.current += 1;
     const now = performance.now();
+
+    if (lastTime.current === null) {
+      lastTime.current = now;
+      return;
+    }
+
+    frameCount.current += 1;
     const delta = now - lastTime.current;
+
     if (delta >= 500) {
       const fps = Math.round((frameCount.current / delta) * 1000);
       if (domRef.current) domRef.current.textContent = `FPS: ${fps}`;
+
       frameCount.current = 0;
       lastTime.current = now;
     }
