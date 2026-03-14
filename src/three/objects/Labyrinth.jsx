@@ -460,7 +460,7 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     () =>
       new THREE.MeshStandardMaterial({
         color: "#555",
-        side: THREE.DoubleSide,
+        side: THREE.FrontSide,
         roughness: 0.8,
         metalness: 0.2,
       }),
