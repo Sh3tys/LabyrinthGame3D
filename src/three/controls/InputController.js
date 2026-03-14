@@ -1,7 +1,7 @@
 /**
  * InputController
  * ---------------
- * Handles keyboard (ZQSD / WASD) and mouse input for the player.
+ * Handles keyboard and mouse input for the player.
  * Click on the canvas to lock the pointer for FPS-style mouse look.
  * Press V to toggle between first-person and third-person view.
  */
@@ -67,10 +67,10 @@ export class InputController {
     domElement.addEventListener("click", this._onClick);
   }
 
-  // ── Direction getters (AZERTY + QWERTY) ───────────────────
+  // ── Direction getters ───────────────────
 
   get forward() {
-    return this.keys.has("KeyW") || this.keys.has("KeyZ");
+    return this.keys.has("KeyZ");
   }
 
   get backward() {
@@ -78,7 +78,7 @@ export class InputController {
   }
 
   get left() {
-    return this.keys.has("KeyA") || this.keys.has("KeyQ");
+    return this.keys.has("KeyQ");
   }
 
   get right() {
@@ -126,7 +126,10 @@ export class InputController {
     window.removeEventListener("keyup", this._onKeyUp);
     window.removeEventListener("blur", this._clearInputState);
     document.removeEventListener("mousemove", this._onMouseMove);
-    document.removeEventListener("pointerlockchange", this._onPointerLockChange);
+    document.removeEventListener(
+      "pointerlockchange",
+      this._onPointerLockChange,
+    );
     document.removeEventListener("visibilitychange", this._onVisibilityChange);
     this.domElement.removeEventListener("click", this._onClick);
   }
