@@ -538,11 +538,17 @@ export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
     if (!playerRef.current || !exitRef.current || hasExited.current) return;
     const pos = playerRef.current.position;
     const exit = exitRef.current;
-    // Rayon de tolérance pour "sortir" (évite d'être trop strict)
-    const tolerance = 1.0;
-    const dx = pos.x - exit.x;
-    const dz = pos.z - exit.z;
-    if (Math.sqrt(dx * dx + dz * dz) < tolerance) {
+    // On veut que la sortie ne se fasse que si le joueur touche la "zone d'ouverture" (mur EST ou SUD retiré)
+    // On récupère la taille d'une cellule (cellSize) et la position du centre de la cellule de sortie
+    const cellSize = playerRef.current.walls?.getMazeSize?.().cellSize || 2;
+    const margin = 0.45; // marge pour tolérance
+    // On considère la sortie si le joueur touche le bord EST ou SUD de la cellule de sortie
+    const estX = exit.x + cellSize / 2;
+    const sudZ = exit.z + cellSize / 2;
+    // Teste si le joueur est "au-delà" du mur EST ou SUD (avec une petite tolérance)
+    const toucheEst = Math.abs(pos.x - estX) < margin && Math.abs(pos.z - exit.z) < cellSize / 2 - margin;
+    const toucheSud = Math.abs(pos.z - sudZ) < margin && Math.abs(pos.x - exit.x) < cellSize / 2 - margin;
+    if (toucheEst || toucheSud) {
       hasExited.current = true;
       if (typeof onExit === 'function') onExit();
     }

@@ -106,30 +106,36 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
 
       // Outer ring walls, sauf ouverture à la sortie (bas droite)
       const isExit = (x === cols - 1 && y === rows - 1);
+      // Mur OUEST
       if (x === 0) {
         blocks.push({
           position: [cx - cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
-      if (x === cols - 1 && !isExit) {
+      // Mur EST (sauf pour la sortie)
+      if (x === cols - 1 && !(isExit)) {
         blocks.push({
           position: [cx + cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
         });
       }
+      // Mur NORD
       if (y === 0) {
         blocks.push({
           position: [cx, WALL_HEIGHT / 2, cz - cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
-      if (y === rows - 1 && !isExit) {
+      // Mur SUD (sauf pour la sortie)
+      if (y === rows - 1 && !(isExit)) {
         blocks.push({
           position: [cx, WALL_HEIGHT / 2, cz + cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
         });
       }
+      // Pour la cellule de sortie, on retire aussi le mur EST et SUD
+      // donc rien à ajouter ici pour isExit
 
       // Internal walls where no graph link exists
       if (x < cols - 1 && !areLinked(links, x, y, x + 1, y)) {
@@ -172,12 +178,16 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         const cx = cellCenterX(x);
         const cz = cellCenterZ(y);
 
-        const top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
-        const right =
-          x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
-        const bottom =
-          y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
-        const left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
+        let top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
+        let right = x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
+        let bottom = y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
+        let left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
+
+        // Pour la cellule de sortie (bas droite), on force l'ouverture EST et SUD
+        if (x === cols - 1 && y === rows - 1) {
+          right = true;
+          bottom = true;
+        }
 
         const module = ModuleFactory.create(
           x,
