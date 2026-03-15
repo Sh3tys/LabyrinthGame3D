@@ -105,7 +105,7 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
       const cz = cellCenterZ(y);
 
       // Outer ring walls, sauf ouverture à la sortie (bas droite)
-      const isExit = (x === cols - 1 && y === rows - 1);
+      const isExit = x === cols - 1 && y === rows - 1;
       // Mur OUEST
       if (x === 0) {
         blocks.push({
@@ -114,7 +114,7 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
         });
       }
       // Mur EST (sauf pour la sortie)
-      if (x === cols - 1 && !(isExit)) {
+      if (x === cols - 1 && !isExit) {
         blocks.push({
           position: [cx + cellSize / 2, WALL_HEIGHT / 2, cz],
           size: [wallThickness, WALL_HEIGHT, wallSpan],
@@ -128,7 +128,7 @@ function buildWallCollisions(cols, rows, cellSize, wallThickness, links) {
         });
       }
       // Mur SUD (sauf pour la sortie)
-      if (y === rows - 1 && !(isExit)) {
+      if (y === rows - 1 && !isExit) {
         blocks.push({
           position: [cx, WALL_HEIGHT / 2, cz + cellSize / 2],
           size: [wallSpan, WALL_HEIGHT, wallThickness],
@@ -463,6 +463,8 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     walkHalfHeight,
     mazeGraph.startCell.x,
     mazeGraph.startCell.y,
+    mazeGraph.exitCell.x,
+    mazeGraph.exitCell.y,
   ]);
 
   React.useEffect(() => {
