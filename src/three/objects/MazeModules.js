@@ -24,9 +24,16 @@ export class MazeGeneratorOOP {
     const hh = height / 2;
     const faces = [];
 
-    // 2. Ceiling Specification
-    // The top face faces downwards (Normal: [0, -1, 0]).
-    // Front side becomes visible inside the room. Outside views see the backface (culled).
+    // 1. Floor — horizontal plane at y = 0.01 (slight offset to avoid z-fighting)
+    faces.push({
+      key: 'floor',
+      type: 'floor',
+      position: [0, 0.01, 0],
+      rotation: [-Math.PI / 2, 0, 0], // Normal +Y (faces up)
+      size: [cellSize, cellSize],
+    });
+
+    // 2. Ceiling — faces downward so it's visible from inside
     faces.push({
       key: 'ceiling',
       type: 'ceiling',
@@ -35,8 +42,8 @@ export class MazeGeneratorOOP {
       size: [cellSize, cellSize],
     });
 
-    // 3. Assembly Logic: Removing adjacent faces based on connectivity
-    // Top/North connection (z - 1)
+    // 3. Walls — only where there is NO connection (passage)
+    // Top/North (z - 1)
     if (!connections.top) {
       faces.push({
         key: 'wall_top',
@@ -46,7 +53,7 @@ export class MazeGeneratorOOP {
         size: [cellSize, height],
       });
     }
-    // Right/East connection (x + 1)
+    // Right/East (x + 1)
     if (!connections.right) {
       faces.push({
         key: 'wall_right',
@@ -56,7 +63,7 @@ export class MazeGeneratorOOP {
         size: [cellSize, height],
       });
     }
-    // Bottom/South connection (z + 1)
+    // Bottom/South (z + 1)
     if (!connections.bottom) {
       faces.push({
         key: 'wall_bottom',
@@ -66,7 +73,7 @@ export class MazeGeneratorOOP {
         size: [cellSize, height],
       });
     }
-    // Left/West connection (x - 1)
+    // Left/West (x - 1)
     if (!connections.left) {
       faces.push({
         key: 'wall_left',
