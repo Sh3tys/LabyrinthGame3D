@@ -28,7 +28,7 @@ class GameGUI extends Component {
 
   handleGameExit() {
     if (this.timerInterval) clearInterval(this.timerInterval);
-    audioManager.dispose(); // Clean up audio
+    audioManager.stopBackgroundSound(); // Stop background music
     this.setState({ hasWon: true });
   }
 
