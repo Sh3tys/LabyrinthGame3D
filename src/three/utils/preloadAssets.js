@@ -23,7 +23,18 @@ export function loadCached(path, key) {
 }
 
 export function prewarmPlayerAssets() {
-  loadCached(MODEL_PATH, "model").catch(() => null);
-  loadCached(IDLE_PATH, "idle").catch(() => null);
-  loadCached(WALK_PATH, "walk").catch(() => null);
+  // Return a promise that waits for all assets to preload
+  // Each load has a max 10 second timeout to prevent hanging
+  const loadWithTimeout = (path, key, timeout = 10000) => {
+    return Promise.race([
+      loadCached(path, key).catch(() => null),
+      new Promise((resolve) => setTimeout(() => resolve(null), timeout))
+    ]);
+  };
+
+  return Promise.all([
+    loadWithTimeout(MODEL_PATH, "model"),
+    loadWithTimeout(IDLE_PATH, "idle"),
+    loadWithTimeout(WALK_PATH, "walk"),
+  ]);
 }
