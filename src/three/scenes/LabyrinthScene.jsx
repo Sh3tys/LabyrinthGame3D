@@ -9,23 +9,16 @@ const SHOW_FPS = true;
 
 function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
-  const lastTime = useRef(null);
+  const lastTime   = useRef(null);
 
   useFrame(() => {
     const now = performance.now();
-
-    if (lastTime.current === null) {
-      lastTime.current = now;
-      return;
-    }
-
+    if (lastTime.current === null) { lastTime.current = now; return; }
     frameCount.current += 1;
     const delta = now - lastTime.current;
-
     if (delta >= 500) {
       const fps = Math.round((frameCount.current / delta) * 1000);
       if (domRef.current) domRef.current.textContent = `FPS: ${fps}`;
-
       frameCount.current = 0;
       lastTime.current = now;
     }
@@ -54,47 +47,47 @@ const LabyrinthScene = ({ onExit }) => {
         style={{ width: "100vw", height: "100vh", background: "#08080a" }}
         dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        shadows={{ type: THREE.PCFShadowMap }}
+        shadows={{ type: THREE.PCFSoftShadowMap }}
       >
         <color attach="background" args={["#0d1117"]} />
-        {/* Fog further away so we can actually see the maze */}
-        <fog attach="fog" args={["#0d1117", 25, 160]} />
+        {/* Fog atmosphérique */}
+        <fog attach="fog" args={["#0d1117", 20, 80]} />
 
-        <ambientLight intensity={0.55} color="#f2f4ff" />
+        {/* Lumière ambiante douce */}
+        <ambientLight intensity={0.35} color="#c8d8ff" />
+
+        {/* Lumière hémisphérique pour sol/ciel */}
         <hemisphereLight
-          intensity={0.5}
+          intensity={0.4}
           color="#dbe8ff"
-          groundColor="#1f2b38"
+          groundColor="#2a1a0a"
         />
 
-        {/* Main sun-like light for readable depth and shadows */}
-        <ambientLight intensity={0.25} />
-
+        {/* Lumière directionnelle principale (soleil) */}
         <directionalLight
-          position={[0, 45, 5]}
-          intensity={1.2}
+          position={[20, 50, 10]}
+          intensity={1.5}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
-          shadow-camera-left={-42}
-          shadow-camera-right={42}
-          shadow-camera-top={42}
-          shadow-camera-bottom={-42}
+          shadow-camera-left={-60}
+          shadow-camera-right={60}
+          shadow-camera-top={60}
+          shadow-camera-bottom={-60}
           shadow-camera-near={1}
-          shadow-camera-far={80}
-          shadow-bias={-0.0001}
+          shadow-camera-far={150}
+          shadow-bias={-0.0003}
+          color="#ffe8c0"
         />
 
-        <pointLight position={[0, 16, 0]} intensity={0.45} color="#9bd6ff" />
-
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[260, 260]} />
-          <meshStandardMaterial
-            color="#232c38"
-            roughness={0.9}
-            metalness={0.03}
-          />
-        </mesh>
+        {/* Point light chaud au centre pour l'ambiance */}
+        <pointLight
+          position={[0, 8, 0]}
+          intensity={0.6}
+          color="#ffb347"
+          distance={40}
+          decay={2}
+        />
 
         <Labyrinth
           width={21}
@@ -106,6 +99,7 @@ const LabyrinthScene = ({ onExit }) => {
         {walls && spawn ? (
           <Player walls={walls} initialPosition={spawn} onExit={onExit} />
         ) : null}
+
         {SHOW_FPS && <FPSTracker domRef={fpsRef} />}
       </Canvas>
 
