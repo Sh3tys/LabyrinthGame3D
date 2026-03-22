@@ -5,6 +5,7 @@ import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import { InputController } from "../controls/InputController.js";
 import { AnimationController } from "../utils/AnimationController.js";
 import { loadCached } from "../utils/preloadAssets.js";
+import { audioManager } from "../utils/AudioManager.js";
 
 // ─── Configuration ──────────────────────────────────────────
 
@@ -90,6 +91,7 @@ export class PlayerCharacter {
     this.viewSwitchCooldown = 0;
     this.forceTPVCameraSnap = false;
     this.tpvSwitchGraceRemaining = 0;
+    this.wasMoving = false; // Track previous movement state for audio
 
     // Yaw pivot — parent of camera and model, rotates on Y axis
     this.yawPivot = new THREE.Object3D();
@@ -215,6 +217,7 @@ export class PlayerCharacter {
   /** Remove from scene and release resources. */
   dispose() {
     this.disposed = true;
+    audioManager.stopWalkSound(); // Stop walk sound on exit
     this.input.dispose();
     if (this.animController) this.animController.dispose();
 
@@ -303,6 +306,15 @@ export class PlayerCharacter {
     if (this.animController) {
       this.animController.setMoving(this.velocity.lengthSq() > 0.03);
     }
+
+    // Handle audio based on movement
+    const isMoving = this.velocity.lengthSq() > 0.03;
+    if (isMoving && !this.wasMoving) {
+      audioManager.startWalkSound();
+    } else if (!isMoving && this.wasMoving) {
+      audioManager.stopWalkSound();
+    }
+    this.wasMoving = isMoving;
 
     if (this.velocity.lengthSq() === 0) return false;
 

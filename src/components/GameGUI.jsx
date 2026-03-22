@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import "./GameGUI.css";
 import LabyrinthScene from "../three/scenes/LabyrinthScene";
 import { prewarmPlayerAssets } from "../three/utils/preloadAssets.js";
+import { audioManager } from "../three/utils/AudioManager.js";
 
 class GameGUI extends Component {
   constructor(props) {
@@ -19,6 +20,7 @@ class GameGUI extends Component {
   // Lance la partie 3D
   startGame() {
     this.setState({ isPlaying: true, elapsedSeconds: 0, hasWon: false });
+    audioManager.playBackgroundSound(); // Start background music
     this.timerInterval = setInterval(() => {
       this.setState((prev) => ({ elapsedSeconds: prev.elapsedSeconds + 1 }));
     }, 1000);
@@ -26,15 +28,18 @@ class GameGUI extends Component {
 
   handleGameExit() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+    audioManager.dispose(); // Clean up audio
     this.setState({ hasWon: true });
   }
 
   componentDidMount() {
     prewarmPlayerAssets();
+    audioManager.init(); // Initialize audio
   }
 
   componentWillUnmount() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+    audioManager.dispose(); // Clean up audio resources
   }
 
   formatTime(totalSeconds) {

@@ -47,7 +47,7 @@ const LabyrinthScene = ({ onExit }) => {
         style={{ width: "100vw", height: "100vh", background: "#08080a" }}
         dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={{ type: THREE.PCFShadowMap }}
       >
         <color attach="background" args={["#0d1117"]} />
         {/* Fog atmosphérique */}
