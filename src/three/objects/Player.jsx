@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
@@ -519,13 +519,22 @@ export class PlayerCharacter {
  *
  * Props:
  *   walls - optional collision provider with resolveCollisions()
+ *   onExit - callback when player exits
  */
-export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
+const PlayerComponent = forwardRef(({ walls, initialPosition = [0, 0, 0], onExit }, ref) => {
   const { scene, camera, gl } = useThree();
   const playerRef = useRef(null);
   const [startX, startY, startZ] = initialPosition;
   const exitRef = useRef(null);
   const hasExited = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    refreshKeyBindings: () => {
+      if (playerRef.current && playerRef.current.input) {
+        playerRef.current.input.refreshKeyBindings();
+      }
+    },
+  }), []);
 
   useEffect(() => {
     const player = new PlayerCharacter(scene, camera, gl.domElement);
@@ -573,4 +582,7 @@ export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
   });
 
   return null;
-}
+});
+
+PlayerComponent.displayName = 'Player';
+export const Player = PlayerComponent;

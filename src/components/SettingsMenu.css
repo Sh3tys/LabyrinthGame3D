@@ -1,0 +1,326 @@
+.settings-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 500;
+}
+
+.settings-container {
+  background: #000000;
+  padding: 40px;
+  width: 90%;
+  max-width: 500px;
+  text-align: center;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.settings-container h2 {
+  text-align: center;
+  color: #ffffff;
+  font-size: 28px;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+.setting-group {
+  margin-bottom: 28px;
+}
+
+.setting-group label {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #333333;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Slider thumb for Chrome, Edge, etc */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+}
+
+.slider::-webkit-slider-thumb:active {
+  box-shadow: 0 2px 8px rgba(0, 212, 255, 0.8);
+}
+
+/* Slider thumb for Firefox */
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+}
+
+/* Track styling for Firefox */
+.slider::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.slider-value {
+  min-width: 45px;
+  text-align: right;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: "Courier New", monospace;
+}
+
+.button-container {
+  display: flex;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.reset-button {
+  flex: 1;
+  padding: 10px 20px;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.reset-button:active {
+  transform: scale(0.98);
+}
+
+.close-button {
+  flex: 1;
+  padding: 10px 20px;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.close-button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.close-button:active {
+  transform: scale(0.98);
+}
+
+/* Keyboard Settings Section */
+.keyboard-settings {
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 1px solid #333333;
+}
+
+.keyboard-settings h3 {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+
+.layout-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.layout-btn {
+  padding: 8px 16px;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.layout-btn:hover {
+  background: #333333;
+}
+
+.layout-btn.active {
+  background: #ffffff;
+  color: #000000;
+}
+
+.layout-info {
+  color: #888888;
+  font-size: 12px;
+  margin: 8px 0 0 0;
+  font-style: italic;
+}
+
+/* Movement Keys Grid */
+.movement-keys-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.key-binding {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.key-binding label {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.key-button {
+  width: 100%;
+  padding: 8px 12px;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  font-family: monospace;
+}
+
+.setting-group .key-button {
+  padding: 10px 16px;
+  font-size: 13px;
+}
+
+.key-button:hover {
+  background: #333333;
+}
+
+.key-button.recording {
+  background: #ffffff;
+  color: #000000;
+  animation: pulse 0.6s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .settings-container {
+    width: 95%;
+    padding: 30px 20px;
+  }
+
+  .settings-container h2 {
+    font-size: 24px;
+    margin-bottom: 25px;
+  }
+
+  .slider-value {
+    min-width: 40px;
+    font-size: 13px;
+  }
+
+  .setting-group label {
+    font-size: 12px;
+  }
+
+  .keyboard-settings {
+    margin-top: 30px;
+    padding-top: 20px;
+  }
+
+  .keyboard-settings h3 {
+    font-size: 14px;
+    margin-bottom: 15px;
+  }
+
+  .movement-keys-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
