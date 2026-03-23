@@ -3,8 +3,10 @@
  * ---------------
  * Handles keyboard and mouse input for the player.
  * Click on the canvas to lock the pointer for FPS-style mouse look.
- * Press V to toggle between first-person and third-person view.
+ * Supports configurable key bindings for movement and actions.
  */
+import { keyBindingsManager } from "../../utils/KeyBindings.js";
+
 export class InputController {
   constructor(domElement) {
     this.domElement = domElement;
@@ -14,11 +16,14 @@ export class InputController {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.viewTogglePending = false;
+    
+    // Load key bindings
+    this.bindings = keyBindingsManager.getBindings();
 
     // Bind event handlers
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
-      if (e.code === "KeyV") this.viewTogglePending = true;
+      if (e.code === this.bindings.viewToggle) this.viewTogglePending = true;
     };
 
     this._onKeyUp = (e) => {
@@ -70,19 +75,19 @@ export class InputController {
   // ── Direction getters ───────────────────
 
   get forward() {
-    return this.keys.has("KeyW");
+    return this.keys.has(this.bindings.forward);
   }
 
   get backward() {
-    return this.keys.has("KeyS");
+    return this.keys.has(this.bindings.backward);
   }
 
   get left() {
-    return this.keys.has("KeyA");
+    return this.keys.has(this.bindings.left);
   }
 
   get right() {
-    return this.keys.has("KeyD");
+    return this.keys.has(this.bindings.right);
   }
 
   get isMoving() {
@@ -118,6 +123,11 @@ export class InputController {
   clearMouseDelta() {
     this.mouseDX = 0;
     this.mouseDY = 0;
+  }
+
+  /** Refresh key bindings from manager (call when settings change) */
+  refreshKeyBindings() {
+    this.bindings = keyBindingsManager.getBindings();
   }
 
   /** Remove all event listeners. */

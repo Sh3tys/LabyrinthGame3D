@@ -12,10 +12,97 @@
   text-align: center;
 }
 
-.play-button {
-  padding: 10px 20px;
+.button-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.menu-layout h1 {
+  font-size: 48px;
+  margin-bottom: 40px;
+  color: #ffffff;
+  text-shadow: none;
+  letter-spacing: 2px;
+}
+
+.menu-layout p {
   font-size: 18px;
+  margin-bottom: 30px;
+  color: #ffffff;
+}
+
+.play-button {
+  padding: 12px 30px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+  margin: 10px;
+}
+
+.play-button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.play-button:active {
+  transform: scale(0.98);
+}
+
+.settings-button {
+  padding: 12px 30px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+  margin: 10px;
+}
+
+.settings-button:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.settings-button:active {
+  transform: scale(0.98);
+}
+
+.settings-button-game {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 10px 14px;
+  font-size: 16px;
+  cursor: pointer;
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  z-index: 200;
+}
+
+.settings-button-game:hover {
+  background: #ffffff;
+  color: #000000;
+}
+
+.settings-button-game:active {
+  transform: scale(0.95);
 }
 
 .timer-overlay {

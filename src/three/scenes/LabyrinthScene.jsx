@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Player } from "../objects/Player.jsx";
@@ -27,16 +27,34 @@ function FPSTracker({ domRef }) {
   return null;
 }
 
-const LabyrinthScene = ({ onExit }) => {
+const LabyrinthScene = forwardRef(({ onExit }, ref) => {
   const [walls, setWalls] = useState(null);
   const [spawn, setSpawn] = useState(null);
   const fpsRef = useRef(null);
+  const playerRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    refreshKeyBindings: () => {
+      if (playerRef.current) {
+        playerRef.current.refreshKeyBindings();
+      }
+    },
+  }), []);
 
   const handleLabyrinthReady = (provider) => {
     setWalls(provider);
     if (provider?.getSpawnPoint) {
       const p = provider.getSpawnPoint();
       setSpawn([p.x, p.y, p.z]);
+    }
+  };
+
+  const handleCanvasClick = (gl) => {
+    // Request pointer lock on canvas click
+    if (gl && gl.domElement) {
+      gl.domElement.requestPointerLock =
+        gl.domElement.requestPointerLock || gl.domElement.mozRequestPointerLock;
+      gl.domElement.requestPointerLock();
     }
   };
 
@@ -48,6 +66,7 @@ const LabyrinthScene = ({ onExit }) => {
         dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         shadows={{ type: THREE.PCFShadowMap }}
+        onCreated={({ gl }) => handleCanvasClick(gl)}
       >
         <color attach="background" args={["#0d1117"]} />
         {/* Fog atmosphérique */}
@@ -97,7 +116,7 @@ const LabyrinthScene = ({ onExit }) => {
         />
 
         {walls && spawn ? (
-          <Player walls={walls} initialPosition={spawn} onExit={onExit} />
+          <Player ref={playerRef} walls={walls} initialPosition={spawn} onExit={onExit} />
         ) : null}
 
         {SHOW_FPS && <FPSTracker domRef={fpsRef} />}
@@ -127,6 +146,8 @@ const LabyrinthScene = ({ onExit }) => {
       )}
     </>
   );
-};
+});
+
+LabyrinthScene.displayName = 'LabyrinthScene';
 
 export default LabyrinthScene;
