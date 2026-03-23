@@ -497,14 +497,31 @@ export class PlayerCharacter {
   _setupTopMarker() {
     if (this.topMarker) return;
 
-    const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 16, 16),
-      new THREE.MeshBasicMaterial({ color: "#ffd54a" }),
+    // Disque plat sombre bien visible de dessus
+    const group = new THREE.Group();
+
+    // Cercle intérieur – noir/bordeaux très foncé
+    const inner = new THREE.Mesh(
+      new THREE.CircleGeometry(0.45, 24),
+      new THREE.MeshBasicMaterial({ color: "#1a0000", depthTest: false }),
     );
-    marker.position.set(0, this.eyeHeight + 1.4, 0);
-    marker.visible = false;
-    this.yawPivot.add(marker);
-    this.topMarker = marker;
+    inner.rotation.x = -Math.PI / 2;
+    inner.renderOrder = 2;
+    group.add(inner);
+
+    // Anneau extérieur – blanc cassé pour le délimiter
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.45, 0.62, 24),
+      new THREE.MeshBasicMaterial({ color: "#ffffff", depthTest: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.renderOrder = 2;
+    group.add(ring);
+
+    group.position.set(0, this.eyeHeight + 1.5, 0);
+    group.visible = false;
+    this.yawPivot.add(group);
+    this.topMarker = group;
   }
 }
 
@@ -520,7 +537,7 @@ export class PlayerCharacter {
  * Props:
  *   walls - optional collision provider with resolveCollisions()
  */
-export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
+export function Player({ walls, initialPosition = [0, 0, 0], onExit, instanceRef }) {
   const { scene, camera, gl } = useThree();
   const playerRef = useRef(null);
   const [startX, startY, startZ] = initialPosition;
@@ -532,9 +549,13 @@ export function Player({ walls, initialPosition = [0, 0, 0], onExit }) {
     player.position.set(startX, startY, startZ);
     player.load();
     playerRef.current = player;
+    if (instanceRef) instanceRef.current = player;
 
-    return () => player.dispose();
-  }, [scene, camera, gl, startX, startY, startZ]);
+    return () => {
+      player.dispose();
+      if (instanceRef) instanceRef.current = null;
+    };
+  }, [scene, camera, gl, startX, startY, startZ, instanceRef]);
 
   useEffect(() => {
     if (playerRef.current) {

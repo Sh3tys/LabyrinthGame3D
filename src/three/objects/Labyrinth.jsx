@@ -410,6 +410,13 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         worldWidth: walkHalfWidth * 2, worldHeight: walkHalfHeight * 2,
       }),
 
+      getMazeLinks: () => ({
+        links: mazeGraph.links,
+        cols,
+        rows,
+        startCell: mazeGraph.startCell,
+        exitCell:  mazeGraph.exitCell,
+      }),
       getSpawnPoint: () => ({
         x: (mazeGraph.startCell.x - (cols - 1) / 2) * cellPitch,
         y: 0,
@@ -442,9 +449,9 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
   }, []);
 
   // Build materials lazily once (they are stable refs across renders)
-  const wallMaterial    = useMemo(() => buildTexturedMaterial(WALL_TEXTURES,    [cellSize / 2, WALL_HEIGHT / 2]), [cellSize]);
+  const wallMaterial    = useMemo(() => buildTexturedMaterial(WALL_TEXTURES,    [cellSize / 2, WALL_HEIGHT / 2], { side: THREE.DoubleSide }), [cellSize]);
   const floorMaterial   = useMemo(() => buildTexturedMaterial(FLOOR_TEXTURES,   [cellSize / 2, cellSize / 2]),    [cellSize]);
-  const ceilingMaterial = useMemo(() => buildTexturedMaterial(CEILING_TEXTURES, [cellSize / 2, cellSize / 2]),    [cellSize]);
+  const ceilingMaterial = useMemo(() => buildTexturedMaterial(CEILING_TEXTURES, [cellSize / 2, cellSize / 2],    { side: THREE.DoubleSide }), [cellSize]);
 
   // ── Sort faces by type ────────────────────────────────────────
   const { wallFaces, floorFaces, ceilingFaces } = useMemo(() => {
