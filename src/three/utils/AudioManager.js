@@ -11,11 +11,13 @@ class AudioManager {
     // Background sound
     this.backgroundAudio = null;
     this.backgroundSource = null;
+    this.backgroundGainNode = null;
 
     // Walk sound
     this.walkAudio = null;
     this.isWalking = false;
     this.walkSource = null;
+    this.walkGainNode = null;
 
     // Event sounds
     this.eventSounds = [];
@@ -24,6 +26,12 @@ class AudioManager {
     this.isEventPlaying = false;
     this.eventIntervalMin = 10000; // Min 10 seconds between events
     this.eventIntervalMax = 30000; // Max 30 seconds between events
+    this.eventGainNodes = []; // Store all event sound audio elements for volume control
+
+    // Volume controls (0.0 to 1.0)
+    this.backgroundVolume = 0.5; // Default 50%
+    this.walkVolume = 0.5; // Default 50%
+    this.eventVolume = 0.5; // Default 50%
 
     // Control flags
     this.audioEnabled = true;
@@ -40,17 +48,25 @@ class AudioManager {
       // Create a single shared audio context
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       
-      // Resume audio context (required by most browsers)
+      // Try to resume audio context with timeout
       if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
+        try {
+          await Promise.race([
+            this.audioContext.resume(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Resume timeout')), 2000))
+          ]);
+        } catch (e) {
+          // Ignore resume errors
+        }
       }
 
-      // Load event sounds
-      await this.loadEventSounds();
+      // Load event sounds (non-blocking)
+      this.loadEventSounds();
 
       this.initialized = true;
     } catch (error) {
       this.audioEnabled = false;
+      this.initialized = true;
     }
   }
 
@@ -160,8 +176,10 @@ class AudioManager {
       this._playAudioBuffer(
         this.backgroundAudio,
         true,
-        (source) => {
+        (source, gainNode) => {
           this.backgroundSource = source;
+          this.backgroundGainNode = gainNode;
+          gainNode.gain.value = this.backgroundVolume; // Apply current volume
           // On end, automatically replay
           source.onended = () => this.playBackgroundSound();
         }
@@ -203,8 +221,10 @@ class AudioManager {
       this._playAudioBuffer(
         this.walkAudio,
         true,
-        (source) => {
+        (source, gainNode) => {
           this.walkSource = source;
+          this.walkGainNode = gainNode;
+          gainNode.gain.value = this.walkVolume * 0.35; // Apply walk volume with its base reduction
           // Auto-loop only if still walking
           source.onended = () => {
             if (this.isWalking && this.walkSource === source) {
@@ -292,8 +312,9 @@ class AudioManager {
 
       this.isEventPlaying = true;
 
-      // Reset and attempt to play
+      // Reset and set volume before attempt to play
       audio.currentTime = 0;
+      audio.volume = this.eventVolume; // Apply event volume
       
       const playPromise = audio.play();
       if (playPromise !== undefined) {
@@ -330,7 +351,7 @@ class AudioManager {
    * Helper method to play audio buffer
    * @private
    */
-  _playAudioBuffer(buffer, loop = false, onSourceCreated = null, volume = 0.7) {
+  _playAudioBuffer(buffer, loop = false, onSourceCreated = null, volume = 0.7, gainNodeRef = null) {
     try {
       if (!this.audioContext) {
         throw new Error("AudioContext not available");
@@ -347,7 +368,7 @@ class AudioManager {
       source.connect(gainNode);
       gainNode.connect(this.audioContext.destination);
 
-      if (onSourceCreated) onSourceCreated(source);
+      if (onSourceCreated) onSourceCreated(source, gainNode);
 
       source.start(0);
     } catch (error) {
@@ -356,11 +377,76 @@ class AudioManager {
   }
 
   /**
+   * Set background sound volume (0.0 to 1.0)
+   */
+  setBackgroundVolume(volume) {
+    const vol = Math.max(0, Math.min(1, volume));
+    this.backgroundVolume = vol;
+    if (this.backgroundGainNode) {
+      this.backgroundGainNode.gain.value = vol;
+    }
+  }
+
+  /**
+   * Set walk sound volume (0.0 to 1.0)
+   */
+  setWalkVolume(volume) {
+    const vol = Math.max(0, Math.min(1, volume));
+    this.walkVolume = vol;
+    if (this.walkGainNode) {
+      this.walkGainNode.gain.value = vol * 0.35; // Apply with base reduction
+    }
+  }
+
+  /**
+   * Set event sounds volume (0.0 to 1.0)
+   */
+  setEventVolume(volume) {
+    const vol = Math.max(0, Math.min(1, volume));
+    this.eventVolume = vol;
+    // Update all event audio elements
+    this.eventSounds.forEach((audio) => {
+      audio.volume = vol;
+    });
+  }
+
+  /**
    * Set volume for all sounds (0.0 to 1.0)
    */
   setMasterVolume(volume) {
     const vol = Math.max(0, Math.min(1, volume));
-    // This would require updating all gain nodes
+    this.setBackgroundVolume(vol);
+    this.setWalkVolume(vol);
+    this.setEventVolume(vol);
+  }
+
+  /**
+   * Pause event sounds (skip current, pause scheduling)
+   */
+  pauseEvents() {
+    // Stop current event if playing
+    if (this.isEventPlaying) {
+      const currentAudio = this.eventSounds.find(audio => audio.currentTime > 0 && !audio.paused);
+      if (currentAudio) {
+        currentAudio.currentTime = 0;
+        currentAudio.pause();
+      }
+      this.isEventPlaying = false;
+    }
+    
+    // Clear any pending event scheduling
+    if (this.eventTimeout) {
+      clearTimeout(this.eventTimeout);
+      this.eventTimeout = null;
+    }
+  }
+
+  /**
+   * Resume event sounds (restart scheduling)
+   */
+  resumeEvents() {
+    // Restart event scheduling
+    this.scheduleNextEventSound();
   }
 
   /**

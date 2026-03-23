@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Player } from "../objects/Player.jsx";
@@ -202,17 +202,40 @@ function TopViewOverlay2D({ walls, playerInstanceRef }) {
 }
 
 // ── Scene principale ───────────────────────────────────────────
-const LabyrinthScene = ({ onExit }) => {
+// const LabyrinthScene = ({ onExit }) => {
+//   const [walls, setWalls] = useState(null);
+//   const [spawn, setSpawn] = useState(null);
+//   const fpsRef           = useRef(null);
+//   const playerInstanceRef = useRef(null);
+
+const LabyrinthScene = forwardRef(({ onExit }, ref) => {
   const [walls, setWalls] = useState(null);
   const [spawn, setSpawn] = useState(null);
-  const fpsRef           = useRef(null);
-  const playerInstanceRef = useRef(null);
+  const fpsRef = useRef(null);
+  const playerRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    refreshKeyBindings: () => {
+      if (playerRef.current) {
+        playerRef.current.refreshKeyBindings();
+      }
+    },
+  }), []);
 
   const handleLabyrinthReady = (provider) => {
     setWalls(provider);
     if (provider?.getSpawnPoint) {
       const p = provider.getSpawnPoint();
       setSpawn([p.x, p.y, p.z]);
+    }
+  };
+
+  const handleCanvasClick = (gl) => {
+    // Request pointer lock on canvas click
+    if (gl && gl.domElement) {
+      gl.domElement.requestPointerLock =
+        gl.domElement.requestPointerLock || gl.domElement.mozRequestPointerLock;
+      gl.domElement.requestPointerLock();
     }
   };
 
@@ -224,6 +247,7 @@ const LabyrinthScene = ({ onExit }) => {
         dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         shadows={{ type: THREE.PCFShadowMap }}
+        onCreated={({ gl }) => handleCanvasClick(gl)}
       >
         {/* ── Upside Down atmosphere ── */}
         <color attach="background" args={["#1a0300"]} />
@@ -264,6 +288,7 @@ const LabyrinthScene = ({ onExit }) => {
 
         {walls && spawn ? (
           <Player
+            ref={playerRef} 
             walls={walls}
             initialPosition={spawn}
             onExit={onExit}
@@ -303,6 +328,8 @@ const LabyrinthScene = ({ onExit }) => {
       )}
     </>
   );
-};
+});
+
+LabyrinthScene.displayName = 'LabyrinthScene';
 
 export default LabyrinthScene;
