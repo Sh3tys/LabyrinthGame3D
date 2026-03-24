@@ -2,9 +2,9 @@ import React, { useMemo, useRef, useEffect } from "react";
 import { ModuleFactory } from "./MazeModules.js";
 import * as THREE from "three";
 
-const WALL_HEIGHT = 4.5;
+const WALL_HEIGHT = 2.5;
 const PLAYER_RADIUS = 0.4;
-const PLAYER_HEIGHT = 2.0;
+const PLAYER_HEIGHT = 1.75;
 const CAMERA_RADIUS = 0.25;
 const CAMERA_HEIGHT = 0.8;
 const WALL_THICKNESS = 1.0;
@@ -492,15 +492,16 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
 
   // Build materials lazily once (they are stable refs across renders)
   const wallMaterial = useMemo(
-    () => buildTexturedMaterial(WALL_TEXTURES, [cellSize / 2, WALL_HEIGHT / 2]),
+    () =>
+      buildTexturedMaterial(WALL_TEXTURES, [cellSize * 0.3, WALL_HEIGHT * 0.3]),
     [cellSize],
   );
   const floorMaterial = useMemo(
-    () => buildTexturedMaterial(FLOOR_TEXTURES, [cellSize / 2, cellSize / 2]),
+    () => buildTexturedMaterial(FLOOR_TEXTURES, [cellSize, cellSize]),
     [cellSize],
   );
   const ceilingMaterial = useMemo(
-    () => buildTexturedMaterial(CEILING_TEXTURES, [cellSize / 2, cellSize / 2]),
+    () => buildTexturedMaterial(CEILING_TEXTURES, [cellSize, cellSize]),
     [cellSize],
   );
 
