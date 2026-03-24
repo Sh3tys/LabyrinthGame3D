@@ -2,34 +2,34 @@ import React, { useMemo, useRef, useEffect } from "react";
 import { ModuleFactory } from "./MazeModules.js";
 import * as THREE from "three";
 
-const WALL_HEIGHT = 4.5;
+const WALL_HEIGHT = 2.5;
 const PLAYER_RADIUS = 0.4;
-const PLAYER_HEIGHT = 2.0;
+const PLAYER_HEIGHT = 1.75;
 const CAMERA_RADIUS = 0.25;
 const CAMERA_HEIGHT = 0.8;
 const WALL_THICKNESS = 1.0;
 
 // ─── Texture paths ────────────────────────────────────────────
 const WALL_TEXTURES = {
-  map:          "/texture/wall/Stone Path 002_Albedo.jpg",
-  aoMap:        "/texture/wall/Stone Path 002_AO.jpg",
-  normalMap:    "/texture/wall/Stone Path 002_Normal.jpg",
+  map: "/texture/wall/Stone Path 002_Albedo.jpg",
+  aoMap: "/texture/wall/Stone Path 002_AO.jpg",
+  normalMap: "/texture/wall/Stone Path 002_Normal.jpg",
   roughnessMap: "/texture/wall/Stone Path 002_Roughness.jpg",
   displacementMap: "/texture/wall/Stone Path 002_Displacement.png",
 };
 
 const FLOOR_TEXTURES = {
-  map:          "/texture/ground/Ground Skull_basecolor.jpg",
-  aoMap:        "/texture/ground/Ground Skull_ambientOcclusion.jpg",
-  normalMap:    "/texture/ground/Ground Skull_normal.jpg",
-  roughnessMap: "/texture/ground/Ground Skull_roughness.jpg",
-  displacementMap: "/texture/ground/Ground Skull_height.png",
+  map: "/texture/ground/Ground_Wet_002_basecolor.jpg",
+  aoMap: "/texture/ground/Ground_Wet_002_ambientOcclusion.jpg",
+  normalMap: "/texture/ground/Ground_Wet_002_normal.jpg",
+  roughnessMap: "/texture/ground/Ground_Wet_002_roughness.jpg",
+  displacementMap: "/texture/ground/Ground_Wet_002_mask.jpg",
 };
 
 const CEILING_TEXTURES = {
-  map:          "/texture/roof/Jungle_Floor_001_basecolor.jpg",
-  aoMap:        "/texture/roof/Jungle_Floor_001_ambientOcclusion.jpg",
-  normalMap:    "/texture/roof/Jungle_Floor_001_normal.jpg",
+  map: "/texture/roof/Jungle_Floor_001_basecolor.jpg",
+  aoMap: "/texture/roof/Jungle_Floor_001_ambientOcclusion.jpg",
+  normalMap: "/texture/roof/Jungle_Floor_001_normal.jpg",
   roughnessMap: "/texture/roof/Jungle_Floor_001_roughness.jpg",
   displacementMap: "/texture/roof/Jungle_Floor_001_height.png",
 };
@@ -58,10 +58,10 @@ function loadLinearTexture(path, repeat = [1, 1]) {
 function buildTexturedMaterial(texDefs, repeatXY, options = {}) {
   const r = repeatXY;
   const mat = new THREE.MeshStandardMaterial({
-    map:             loadTexture(texDefs.map, r),
-    aoMap:           loadLinearTexture(texDefs.aoMap, r),
-    normalMap:       loadLinearTexture(texDefs.normalMap, r),
-    roughnessMap:    loadLinearTexture(texDefs.roughnessMap, r),
+    map: loadTexture(texDefs.map, r),
+    aoMap: loadLinearTexture(texDefs.aoMap, r),
+    normalMap: loadLinearTexture(texDefs.normalMap, r),
+    roughnessMap: loadLinearTexture(texDefs.roughnessMap, r),
     // displacement is expensive on instanced meshes — skip by default
     roughness: 0.85,
     metalness: 0.02,
@@ -230,10 +230,10 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         const cx = cellCenterX(x);
         const cz = cellCenterZ(y);
 
-        let top    = y > 0         && areLinked(mazeGraph.links, x, y, x, y - 1);
-        let right  = x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
+        let top = y > 0 && areLinked(mazeGraph.links, x, y, x, y - 1);
+        let right = x < cols - 1 && areLinked(mazeGraph.links, x, y, x + 1, y);
         let bottom = y < rows - 1 && areLinked(mazeGraph.links, x, y, x, y + 1);
-        let left   = x > 0         && areLinked(mazeGraph.links, x, y, x - 1, y);
+        let left = x > 0 && areLinked(mazeGraph.links, x, y, x - 1, y);
 
         if (x === cols - 1 && y === rows - 1) {
           right = true;
@@ -241,7 +241,12 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         }
 
         const module = ModuleFactory.create(
-          x, y, cx, cz, cellSize, WALL_HEIGHT,
+          x,
+          y,
+          cx,
+          cz,
+          cellSize,
+          WALL_HEIGHT,
           { top, right, bottom, left },
         );
         mods.push(module);
@@ -255,9 +260,9 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     [cols, rows, cellSize, mazeGraph.links],
   );
 
-  const wallBlocks  = wallLayout.blocks;
-  const cellPitch   = mazeLayout.cellPitch;
-  const walkHalfWidth  = ((cols - 1) * cellPitch) / 2 + cellSize / 2;
+  const wallBlocks = wallLayout.blocks;
+  const cellPitch = mazeLayout.cellPitch;
+  const walkHalfWidth = ((cols - 1) * cellPitch) / 2 + cellSize / 2;
   const walkHalfHeight = ((rows - 1) * cellPitch) / 2 + cellSize / 2;
 
   // ── Collision boxes ──────────────────────────────────────────
@@ -273,31 +278,35 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
   }, [wallBlocks]);
 
   const collisionProvider = useMemo(() => {
-    const tmpStepDelta    = new THREE.Vector3();
-    const tmpTryPos       = new THREE.Vector3();
-    const tmpStart        = new THREE.Vector3();
-    const tmpEnd          = new THREE.Vector3();
-    const tmpCandidate    = new THREE.Vector3();
-    const tmpSafe         = new THREE.Vector3();
+    const tmpStepDelta = new THREE.Vector3();
+    const tmpTryPos = new THREE.Vector3();
+    const tmpStart = new THREE.Vector3();
+    const tmpEnd = new THREE.Vector3();
+    const tmpCandidate = new THREE.Vector3();
+    const tmpSafe = new THREE.Vector3();
 
     const clampPositionInPlace = (pos, radius = PLAYER_RADIUS) => {
-      pos.x = clamp(pos.x, -walkHalfWidth  + radius, walkHalfWidth  - radius);
+      pos.x = clamp(pos.x, -walkHalfWidth + radius, walkHalfWidth - radius);
       pos.z = clamp(pos.z, -walkHalfHeight + radius, walkHalfHeight - radius);
       return pos;
     };
 
     const makeBodyBox = (pos, radius, bodyHeight) =>
       new THREE.Box3(
-        new THREE.Vector3(pos.x - radius, 0,          pos.z - radius),
-        new THREE.Vector3(pos.x + radius, bodyHeight,  pos.z + radius),
+        new THREE.Vector3(pos.x - radius, 0, pos.z - radius),
+        new THREE.Vector3(pos.x + radius, bodyHeight, pos.z + radius),
       );
 
     const updateBodyBox = (bodyBox, pos, radius, bodyHeight) => {
-      bodyBox.min.set(pos.x - radius, 0,         pos.z - radius);
+      bodyBox.min.set(pos.x - radius, 0, pos.z - radius);
       bodyBox.max.set(pos.x + radius, bodyHeight, pos.z + radius);
     };
 
-    const isBlockedAt = (pos, radius = PLAYER_RADIUS, bodyHeight = PLAYER_HEIGHT) => {
+    const isBlockedAt = (
+      pos,
+      radius = PLAYER_RADIUS,
+      bodyHeight = PLAYER_HEIGHT,
+    ) => {
       const bodyBox = makeBodyBox(pos, radius, bodyHeight);
       for (const wall of wallBoxes) {
         if (bodyBox.intersectsBox(wall)) return true;
@@ -305,7 +314,11 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       return false;
     };
 
-    const resolveBodyCollisions = (pos, radius = PLAYER_RADIUS, bodyHeight = PLAYER_HEIGHT) => {
+    const resolveBodyCollisions = (
+      pos,
+      radius = PLAYER_RADIUS,
+      bodyHeight = PLAYER_HEIGHT,
+    ) => {
       clampPositionInPlace(pos, radius);
       const bodyBox = makeBodyBox(pos, radius, bodyHeight);
 
@@ -314,8 +327,14 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
         for (const wall of wallBoxes) {
           if (!bodyBox.intersectsBox(wall)) continue;
 
-          const overlapX = Math.min(bodyBox.max.x - wall.min.x, wall.max.x - bodyBox.min.x);
-          const overlapZ = Math.min(bodyBox.max.z - wall.min.z, wall.max.z - bodyBox.min.z);
+          const overlapX = Math.min(
+            bodyBox.max.x - wall.min.x,
+            wall.max.x - bodyBox.min.x,
+          );
+          const overlapZ = Math.min(
+            bodyBox.max.z - wall.min.z,
+            wall.max.z - bodyBox.min.z,
+          );
           if (overlapX <= 0 || overlapZ <= 0) continue;
 
           const bodyCenterX = (bodyBox.min.x + bodyBox.max.x) * 0.5;
@@ -339,9 +358,16 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     };
 
     return {
-      clampPosition: (pos, radius = PLAYER_RADIUS) => clampPositionInPlace(pos, radius),
+      clampPosition: (pos, radius = PLAYER_RADIUS) =>
+        clampPositionInPlace(pos, radius),
 
-      moveAndSlide: (pos, delta, radius = PLAYER_RADIUS, bodyHeight = PLAYER_HEIGHT, maxStep = 0.18) => {
+      moveAndSlide: (
+        pos,
+        delta,
+        radius = PLAYER_RADIUS,
+        bodyHeight = PLAYER_HEIGHT,
+        maxStep = 0.18,
+      ) => {
         const dist = delta.length();
         if (dist <= 0) return pos;
 
@@ -377,20 +403,33 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       },
 
       resolveBodyCollisions,
-      resolveCollisions: (pos) => resolveBodyCollisions(pos, PLAYER_RADIUS, PLAYER_HEIGHT),
-      resolveCameraCollisions: (pos, radius = CAMERA_RADIUS, bodyHeight = CAMERA_HEIGHT) =>
-        resolveBodyCollisions(pos, radius, bodyHeight),
+      resolveCollisions: (pos) =>
+        resolveBodyCollisions(pos, PLAYER_RADIUS, PLAYER_HEIGHT),
+      resolveCameraCollisions: (
+        pos,
+        radius = CAMERA_RADIUS,
+        bodyHeight = CAMERA_HEIGHT,
+      ) => resolveBodyCollisions(pos, radius, bodyHeight),
 
-      sweepCameraCollisions: (fromPos, toPos, radius = CAMERA_RADIUS, bodyHeight = CAMERA_HEIGHT) => {
+      sweepCameraCollisions: (
+        fromPos,
+        toPos,
+        radius = CAMERA_RADIUS,
+        bodyHeight = CAMERA_HEIGHT,
+      ) => {
         const start = tmpStart.copy(fromPos);
-        const end   = tmpEnd.copy(toPos);
+        const end = tmpEnd.copy(toPos);
         const candidate = tmpCandidate;
-        const safe  = tmpSafe.copy(start);
+        const safe = tmpSafe.copy(start);
 
         safe.x = clamp(safe.x, -walkHalfWidth + radius, walkHalfWidth - radius);
-        safe.z = clamp(safe.z, -walkHalfHeight + radius, walkHalfHeight - radius);
-        end.x  = clamp(end.x,  -walkHalfWidth + radius, walkHalfWidth - radius);
-        end.z  = clamp(end.z,  -walkHalfHeight + radius, walkHalfHeight - radius);
+        safe.z = clamp(
+          safe.z,
+          -walkHalfHeight + radius,
+          walkHalfHeight - radius,
+        );
+        end.x = clamp(end.x, -walkHalfWidth + radius, walkHalfWidth - radius);
+        end.z = clamp(end.z, -walkHalfHeight + radius, walkHalfHeight - radius);
 
         const steps = 24;
         for (let i = 1; i <= steps; i += 1) {
@@ -405,9 +444,13 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       },
 
       getMazeSize: () => ({
-        width: cols, height: rows, cellSize: cellPitch,
-        centerX: 0, centerZ: 0,
-        worldWidth: walkHalfWidth * 2, worldHeight: walkHalfHeight * 2,
+        width: cols,
+        height: rows,
+        cellSize: cellPitch,
+        centerX: 0,
+        centerZ: 0,
+        worldWidth: walkHalfWidth * 2,
+        worldHeight: walkHalfHeight * 2,
       }),
 
       getSpawnPoint: () => ({
@@ -423,10 +466,16 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
       }),
     };
   }, [
-    wallBoxes, cols, rows, cellPitch,
-    walkHalfWidth, walkHalfHeight,
-    mazeGraph.startCell.x, mazeGraph.startCell.y,
-    mazeGraph.exitCell.x, mazeGraph.exitCell.y,
+    wallBoxes,
+    cols,
+    rows,
+    cellPitch,
+    walkHalfWidth,
+    walkHalfHeight,
+    mazeGraph.startCell.x,
+    mazeGraph.startCell.y,
+    mazeGraph.exitCell.x,
+    mazeGraph.exitCell.y,
   ]);
 
   React.useEffect(() => {
@@ -442,22 +491,32 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
   }, []);
 
   // Build materials lazily once (they are stable refs across renders)
-  const wallMaterial    = useMemo(() => buildTexturedMaterial(WALL_TEXTURES,    [cellSize / 2, WALL_HEIGHT / 2]), [cellSize]);
-  const floorMaterial   = useMemo(() => buildTexturedMaterial(FLOOR_TEXTURES,   [cellSize / 2, cellSize / 2]),    [cellSize]);
-  const ceilingMaterial = useMemo(() => buildTexturedMaterial(CEILING_TEXTURES, [cellSize / 2, cellSize / 2]),    [cellSize]);
+  const wallMaterial = useMemo(
+    () =>
+      buildTexturedMaterial(WALL_TEXTURES, [cellSize * 0.3, WALL_HEIGHT * 0.3]),
+    [cellSize],
+  );
+  const floorMaterial = useMemo(
+    () => buildTexturedMaterial(FLOOR_TEXTURES, [cellSize, cellSize]),
+    [cellSize],
+  );
+  const ceilingMaterial = useMemo(
+    () => buildTexturedMaterial(CEILING_TEXTURES, [cellSize, cellSize]),
+    [cellSize],
+  );
 
   // ── Sort faces by type ────────────────────────────────────────
   const { wallFaces, floorFaces, ceilingFaces } = useMemo(() => {
-    const wallF    = [];
-    const floorF   = [];
-    const ceilF    = [];
+    const wallF = [];
+    const floorF = [];
+    const ceilF = [];
 
     mazeLayout.modules.forEach((mod) => {
       mod.getFaces().forEach((face) => {
         const entry = {
-          position:       face.position,
-          rotation:       face.rotation,
-          size:           face.size,
+          position: face.position,
+          rotation: face.rotation,
+          size: face.size,
           modulePosition: [mod.px, 0, mod.pz],
         };
         if (face.type === "ceiling") {
@@ -474,14 +533,14 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
   }, [mazeLayout.modules]);
 
   // ── Instanced mesh refs ───────────────────────────────────────
-  const wallMeshRef    = useRef();
-  const floorMeshRef   = useRef();
+  const wallMeshRef = useRef();
+  const floorMeshRef = useRef();
   const ceilingMeshRef = useRef();
 
   // Helper to apply matrices
   const applyInstances = (meshRef, faces) => {
     if (!meshRef.current) return;
-    const mesh  = meshRef.current;
+    const mesh = meshRef.current;
     const dummy = new THREE.Object3D();
 
     faces.forEach((face, i) => {
@@ -500,8 +559,8 @@ export function Labyrinth({ width = 21, height = 21, cellSize = 2, onReady }) {
     mesh.computeBoundingSphere();
   };
 
-  useEffect(() => applyInstances(wallMeshRef,    wallFaces),    [wallFaces]);
-  useEffect(() => applyInstances(floorMeshRef,   floorFaces),   [floorFaces]);
+  useEffect(() => applyInstances(wallMeshRef, wallFaces), [wallFaces]);
+  useEffect(() => applyInstances(floorMeshRef, floorFaces), [floorFaces]);
   useEffect(() => applyInstances(ceilingMeshRef, ceilingFaces), [ceilingFaces]);
 
   return (
