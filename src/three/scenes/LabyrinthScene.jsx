@@ -7,6 +7,20 @@ import { Labyrinth } from "../objects/Labyrinth.jsx";
 // Set to false to hide the FPS counter
 const SHOW_FPS = true;
 
+// Component to manage ambient light visibility based on camera mode
+function TopViewAmbientLight({ cameraMode }) {
+  const ambientLightRef = useRef(null);
+
+  useFrame(() => {
+    if (ambientLightRef.current) {
+      // Enable ambient light only when in TOP view
+      ambientLightRef.current.intensity = cameraMode === 'TOP' ? 5 : 0.35;
+    }
+  });
+
+  return <ambientLight ref={ambientLightRef} intensity={0.35} color="#c8d8ff" />;
+}
+
 function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
   const lastTime   = useRef(null);
@@ -30,8 +44,10 @@ function FPSTracker({ domRef }) {
 const LabyrinthScene = forwardRef(({ onExit }, ref) => {
   const [walls, setWalls] = useState(null);
   const [spawn, setSpawn] = useState(null);
+  const [cameraMode, setCameraMode] = useState('FPV');
   const fpsRef = useRef(null);
   const playerRef = useRef(null);
+  const ambientLightRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     refreshKeyBindings: () => {
@@ -72,8 +88,8 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
         {/* Fog atmosphérique */}
         <fog attach="fog" args={["#0d1117", 20, 80]} />
 
-        {/* Lumière ambiante douce */}
-        <ambientLight intensity={0.35} color="#c8d8ff" />
+        {/* Lumière ambiante douce - visibility managed by camera mode */}
+        <TopViewAmbientLight cameraMode={cameraMode} />
 
         {/* Lumière hémisphérique pour sol/ciel */}
         <hemisphereLight
@@ -96,7 +112,7 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
           shadow-camera-near={1}
           shadow-camera-far={150}
           shadow-bias={-0.0003}
-          color="#ffe8c0"
+          color="#fdb437"
         />
 
         {/* Point light chaud au centre pour l'ambiance */}
@@ -116,7 +132,7 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
         />
 
         {walls && spawn ? (
-          <Player ref={playerRef} walls={walls} initialPosition={spawn} onExit={onExit} />
+          <Player ref={playerRef} walls={walls} initialPosition={spawn} onExit={onExit} onCameraModeSwitched={setCameraMode} />
         ) : null}
 
         {SHOW_FPS && <FPSTracker domRef={fpsRef} />}
