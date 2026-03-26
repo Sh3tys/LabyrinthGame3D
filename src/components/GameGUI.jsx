@@ -34,9 +34,21 @@ class GameGUI extends Component {
   }
 
   // Lance la partie 3D
-  startGame() {
+  async startGame() {
     this.setState({ isPlaying: true, elapsedSeconds: 0, hasWon: false, isPaused: false, showSettingsFromPause: false });
-    audioManager.playBackgroundSound(); // Start background music
+    
+    // Wait a brief moment to ensure UI state updates before audio operations
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Ensure audio context is initialized before playing background sound
+    if (!audioManager.initialized) {
+      await audioManager.init();
+    }
+    
+    // Resume audio context and play background music
+    await audioManager.resumeAudioContext();
+    await audioManager.playBackgroundSound();
+    
     this.timerInterval = setInterval(() => {
       this.setState((prev) => ({ elapsedSeconds: prev.elapsedSeconds + 1 }));
     }, 1000);
