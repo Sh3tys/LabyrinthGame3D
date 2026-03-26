@@ -450,6 +450,21 @@ class AudioManager {
   }
 
   /**
+   * Resume audio context (call after user gesture)
+   */
+  async resumeAudioContext() {
+    if (!this.audioContext || this.audioContext.state === 'running') return;
+    
+    try {
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+    } catch (error) {
+      // Silent fail - audio context may not be resumable
+    }
+  }
+
+  /**
    * Enable/Disable all audio
    */
   setAudioEnabled(enabled) {
