@@ -402,6 +402,10 @@ export class PlayerCharacter {
     this.viewSwitchCooldown = VIEW_SWITCH_COOLDOWN;
     this.input.clearMouseDelta();
     this._applyViewSettings();
+    // Notify about camera mode change
+    if (this.onCameraModeSwitched) {
+      this.onCameraModeSwitched(this.viewMode);
+    }
   }
 
   _recomputeTopViewHeight() {
@@ -520,8 +524,9 @@ export class PlayerCharacter {
  * Props:
  *   walls - optional collision provider with resolveCollisions()
  *   onExit - callback when player exits
+ *   onCameraModeSwitched - callback when camera mode changes (receives new mode: 'FPV', 'TPV', or 'TOP')
  */
-const PlayerComponent = forwardRef(({ walls, initialPosition = [0, 0, 0], onExit }, ref) => {
+const PlayerComponent = forwardRef(({ walls, initialPosition = [0, 0, 0], onExit, onCameraModeSwitched }, ref) => {
   const { scene, camera, gl } = useThree();
   const playerRef = useRef(null);
   const [startX, startY, startZ] = initialPosition;
@@ -539,11 +544,12 @@ const PlayerComponent = forwardRef(({ walls, initialPosition = [0, 0, 0], onExit
   useEffect(() => {
     const player = new PlayerCharacter(scene, camera, gl.domElement);
     player.position.set(startX, startY, startZ);
+    player.onCameraModeSwitched = onCameraModeSwitched;
     player.load();
     playerRef.current = player;
 
     return () => player.dispose();
-  }, [scene, camera, gl, startX, startY, startZ]);
+  }, [scene, camera, gl, startX, startY, startZ, onCameraModeSwitched]);
 
   useEffect(() => {
     if (playerRef.current) {
