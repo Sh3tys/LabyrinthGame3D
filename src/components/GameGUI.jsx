@@ -34,9 +34,21 @@ class GameGUI extends Component {
   }
 
   // Lance la partie 3D
-  startGame() {
+  async startGame() {
     this.setState({ isPlaying: true, elapsedSeconds: 0, hasWon: false, isPaused: false, showSettingsFromPause: false });
-    audioManager.playBackgroundSound(); // Start background music
+    
+    // Wait a brief moment to ensure UI state updates before audio operations
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Ensure audio context is initialized before playing background sound
+    if (!audioManager.initialized) {
+      await audioManager.init();
+    }
+    
+    // Resume audio context and play background music
+    await audioManager.resumeAudioContext();
+    await audioManager.playBackgroundSound();
+    
     this.timerInterval = setInterval(() => {
       this.setState((prev) => ({ elapsedSeconds: prev.elapsedSeconds + 1 }));
     }, 1000);
@@ -116,18 +128,17 @@ class GameGUI extends Component {
   }
 
   componentDidMount() {
-    // Load assets and initialize audio, then hide loading screen
+    // Load assets only (audio will init on first user interaction)
     const initializeApp = async () => {
       try {
-        // Start all initialization tasks in parallel
+        // Preload player assets
         const preloadPromise = prewarmPlayerAssets();
-        const audioPromise = audioManager.init();
         
-        // Wait for both with a max timeout of 8 seconds
+        // Wait for preload with a max timeout of 8 seconds
         await Promise.race([
-          Promise.all([preloadPromise, audioPromise]),
+          preloadPromise,
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Initialization timeout')), 8000)
+            setTimeout(() => reject(new Error('Preload timeout')), 8000)
           )
         ]);
         
@@ -135,9 +146,8 @@ class GameGUI extends Component {
         await new Promise(resolve => setTimeout(resolve, 300));
         this.setState({ isLoading: false });
       } catch (error) {
-        console.warn('Initialization warning:', error);
+        console.warn('Preload warning:', error);
         // Hide loading screen after timeout regardless of errors
-        // Audio and assets will continue loading in background
         this.setState({ isLoading: false });
       }
     };
@@ -202,9 +212,6 @@ class GameGUI extends Component {
             <h1>Bravo !</h1>
             <p>Tu as trouvé la sortie en {this.formatTime(this.state.elapsedSeconds)} !</p>
             <button className="play-button" onClick={this.startGame}>Rejouer</button>
-            <button className="settings-button" onClick={this.toggleSettings}>
-              Parametres
-            </button>
           </div>
         ) : this.state.isPlaying ? (
           <>

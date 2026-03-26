@@ -3,6 +3,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Player } from "../objects/Player.jsx";
 import { Labyrinth } from "../objects/Labyrinth.jsx";
+import { audioManager } from "../utils/AudioManager.js";
 
 // Set to false to hide the FPS counter
 const SHOW_FPS = true;
@@ -72,6 +73,8 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
         gl.domElement.requestPointerLock || gl.domElement.mozRequestPointerLock;
       gl.domElement.requestPointerLock();
     }
+    // Resume audio context on user interaction (browser security requirement)
+    audioManager.resumeAudioContext();
   };
 
   return (
@@ -80,9 +83,31 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
         camera={{ position: [0, 5, 10], fov: 60 }}
         style={{ width: "100vw", height: "100vh", background: "#08080a" }}
         dpr={[1, 1.25]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{ antialias: true, powerPreference: "high-performance", failOnWebGL1: false }}
         shadows={{ type: THREE.PCFShadowMap }}
-        onCreated={({ gl }) => handleCanvasClick(gl)}
+        onCreated={({ gl }) => {
+          handleCanvasClick(gl);
+          // Initialize audio on first user interaction (browser autoplay policy)
+          const initAudioOnInteraction = async () => {
+            if (!audioManager.initialized) {
+              await audioManager.init();
+            }
+            audioManager.resumeAudioContext();
+          };
+          // Add listeners for all user interactions to init and resume audio
+          gl.domElement.addEventListener('click', initAudioOnInteraction, { once: true });
+          gl.domElement.addEventListener('mousedown', initAudioOnInteraction, { once: true });
+          window.addEventListener('keydown', initAudioOnInteraction, { once: true });
+          
+          // Handle WebGL context loss
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            console.warn('WebGL context lost, attempting recovery...');
+            e.preventDefault();
+          });
+          gl.domElement.addEventListener('webglcontextrestored', () => {
+            console.log('WebGL context restored');
+          });
+        }}
       >
         <color attach="background" args={["#0d1117"]} />
         {/* Fog atmosphérique */}

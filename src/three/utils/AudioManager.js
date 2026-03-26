@@ -12,6 +12,7 @@ class AudioManager {
     this.backgroundAudio = null;
     this.backgroundSource = null;
     this.backgroundGainNode = null;
+    this.isPlayingBackground = false;
 
     // Walk sound
     this.walkAudio = null;
@@ -89,30 +90,12 @@ class AudioManager {
         "eventSound-12.mp3",
         "eventSound-13.mp3",
     ];
-
-    let successCount = 0;
     
     // Create audio elements with proper error handling
     eventSoundFiles.forEach((filename, index) => {
       const audio = new Audio();
       audio.src = `/sounds/eventSound/${filename}`;
       audio.preload = "auto";
-      
-      // Track if audio loads successfully
-      audio.addEventListener('canplay', () => {
-        // Sound ready
-      }, { once: true });
-      
-      // Catch load errors
-      audio.addEventListener('error', (e) => {
-        // Load error - silent fail
-      }, { once: true });
-      
-      // Catch abort errors
-      audio.addEventListener('abort', () => {
-        // Abort - silent fail
-      }, { once: true });
-      
       this.eventSounds.push(audio);
     });
 
@@ -161,17 +144,36 @@ class AudioManager {
    * Play background sound with automatic looping
    */
   async playBackgroundSound() {
-    if (!this.audioEnabled || !this.audioContext) return;
+    if (!this.audioEnabled) return;
+    
+    // Prevent multiple simultaneous background sound plays
+    if (this.isPlayingBackground) return;
+    this.isPlayingBackground = true;
+
+    // Ensure audioContext exists before playing
+    if (!this.audioContext) {
+      if (!this.initialized) {
+        await this.init();
+      }
+      if (!this.audioContext) {
+        this.isPlayingBackground = false;
+        return; // Still no context, bail
+      }
+    }
 
     try {
-      // Stop previous background sound if playing
+      // Stop previous background sound completely
       if (this.backgroundSource) {
-        this.backgroundSource.stop();
+        try {
+          this.backgroundSource.stop();
+        } catch (e) {
+          // Already stopped
+        }
+        this.backgroundSource = null;
       }
 
-      if (!this.backgroundAudio) {
-        this.backgroundAudio = await this.loadAudioFile("/sounds/backgroundSound.mp3");
-      }
+      // Always reload audio file for each play to ensure fresh playback
+      this.backgroundAudio = await this.loadAudioFile("/sounds/backgroundSound.mp3");
 
       this._playAudioBuffer(
         this.backgroundAudio,
@@ -181,17 +183,23 @@ class AudioManager {
           this.backgroundGainNode = gainNode;
           gainNode.gain.value = this.backgroundVolume; // Apply current volume
           // On end, automatically replay
-          source.onended = () => this.playBackgroundSound();
+          source.onended = () => {
+            this.isPlayingBackground = false;
+            this.playBackgroundSound();
+          };
         }
       );
     } catch (error) {
+      // Silent fail - audio file may not be available
+      this.isPlayingBackground = false;
     }
   }
 
   /**
-   * Stop background sound
+   * Stop background sound and reset audio state for replay
    */
   stopBackgroundSound() {
+    this.isPlayingBackground = false;
     if (this.backgroundSource) {
       try {
         this.backgroundSource.stop();
@@ -200,6 +208,9 @@ class AudioManager {
       }
       this.backgroundSource = null;
     }
+    this.backgroundGainNode = null;
+    // Reset audio buffer to force fresh load on next play
+    this.backgroundAudio = null;
   }
 
   /**
@@ -351,7 +362,7 @@ class AudioManager {
    * Helper method to play audio buffer
    * @private
    */
-  _playAudioBuffer(buffer, loop = false, onSourceCreated = null, volume = 0.7, gainNodeRef = null) {
+  _playAudioBuffer(buffer, loop = false, onSourceCreated = null, volume = 0.7) {
     try {
       if (!this.audioContext) {
         throw new Error("AudioContext not available");
@@ -447,6 +458,21 @@ class AudioManager {
   resumeEvents() {
     // Restart event scheduling
     this.scheduleNextEventSound();
+  }
+
+  /**
+   * Resume audio context (call after user gesture)
+   */
+  async resumeAudioContext() {
+    if (!this.audioContext || this.audioContext.state === 'running') return;
+    
+    try {
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+    } catch (error) {
+      // Silent fail - audio context may not be resumable
+    }
   }
 
   /**
