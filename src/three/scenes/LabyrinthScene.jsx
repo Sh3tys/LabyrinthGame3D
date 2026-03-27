@@ -6,7 +6,7 @@ import React, {
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { Player } from "../objects/Player.jsx";
+import { Player } from "../objects/player/Player.jsx";
 import { Labyrinth } from "../objects/labyrinth/Labyrinth.jsx";
 import { audioManager } from "../utils/AudioManager.js";
 
