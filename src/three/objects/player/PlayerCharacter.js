@@ -550,8 +550,8 @@ export class PlayerCharacter {
     if (this.topMarker) return;
 
     const marker = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 16, 16),
-      new THREE.MeshBasicMaterial({ color: "#ffd54a" }),
+      new THREE.SphereGeometry(0.5, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x000000 }),
     );
     marker.position.set(0, this.eyeHeight + 1.4, 0);
     marker.visible = false;

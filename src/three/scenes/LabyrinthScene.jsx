@@ -20,12 +20,12 @@ function TopViewAmbientLight({ cameraMode }) {
   useFrame(() => {
     if (ambientLightRef.current) {
       // Enable ambient light only when in TOP view
-      ambientLightRef.current.intensity = cameraMode === "TOP" ? 5 : 0.35;
+      ambientLightRef.current.intensity = cameraMode === "TOP" ? 80 : 0.4;
     }
   });
 
   return (
-    <ambientLight ref={ambientLightRef} intensity={0.35} color="#c8d8ff" />
+    <ambientLight ref={ambientLightRef} intensity={0.4} color="#c8d8ff" />
   );
 }
 
