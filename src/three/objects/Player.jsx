@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import React, {
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
@@ -35,8 +40,6 @@ const SMOOTH_FACTOR = 20;
 // Clamp deltaTime to avoid physics jumps on tab-switch / frame spikes
 const MAX_DT = 0.1;
 
-
-
 // ─── PlayerCharacter Class ──────────────────────────────────
 
 /**
@@ -71,7 +74,7 @@ export class PlayerCharacter {
     this.targetYaw = 0;
     this.targetPitch = 0;
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
-    this.viewMode = 'FPV';
+    this.viewMode = "FPV";
     this.loaded = false;
     this.disposed = false;
     this.model = null;
@@ -79,7 +82,13 @@ export class PlayerCharacter {
     this.walls = null;
     this.flashlight = null;
     this.topMarker = null;
-    this.mazeSize = { width: 21, height: 21, cellSize: 2, centerX: -1, centerZ: -1 };
+    this.mazeSize = {
+      width: 21,
+      height: 21,
+      cellSize: 2,
+      centerX: -1,
+      centerZ: -1,
+    };
     this.topViewHeight = 50;
     this._tmpVecA = new THREE.Vector3();
     this._tmpVecB = new THREE.Vector3();
@@ -178,7 +187,10 @@ export class PlayerCharacter {
 
     // Touche V : cycle fiable FPV -> TPV -> TOP -> FPV
     this.viewSwitchCooldown = Math.max(0, this.viewSwitchCooldown - dt);
-    this.tpvSwitchGraceRemaining = Math.max(0, this.tpvSwitchGraceRemaining - dt);
+    this.tpvSwitchGraceRemaining = Math.max(
+      0,
+      this.tpvSwitchGraceRemaining - dt,
+    );
     if (this.input.consumeViewToggle() && this.viewSwitchCooldown <= 0) {
       let next = "FPV";
       if (this.viewMode === "FPV") next = "TPV";
@@ -244,13 +256,16 @@ export class PlayerCharacter {
 
   /** Rotate camera based on mouse movement with smooth interpolation. */
   _handleMouseLook(dt) {
-    if (!this.input.pointerLocked || this.viewMode === 'TOP') return;
+    if (!this.input.pointerLocked || this.viewMode === "TOP") return;
 
     // Update target rotations from raw mouse input
     const { x: dx, y: dy } = this.input.consumeMouseDelta();
     this.targetYaw -= dx * MOUSE_SENSITIVITY;
     this.targetPitch -= dy * MOUSE_SENSITIVITY;
-    this.targetPitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.targetPitch));
+    this.targetPitch = Math.max(
+      -PITCH_LIMIT,
+      Math.min(PITCH_LIMIT, this.targetPitch),
+    );
 
     // Smoothly interpolate current rotation toward the target
     // Using exponential decay: 1 - e^(-factor * dt) gives frame-rate-independent smoothing
@@ -269,7 +284,7 @@ export class PlayerCharacter {
     let fwd;
     let rgt;
 
-    if (this.viewMode === 'TOP') {
+    if (this.viewMode === "TOP") {
       // En vue de dessus (TOP), axes mondiaux
       fwd = new THREE.Vector3(0, 0, -1);
       rgt = new THREE.Vector3(1, 0, 0);
@@ -296,10 +311,14 @@ export class PlayerCharacter {
       targetVelocity.copy(moveDir).multiplyScalar(MOVE_SPEED);
     }
 
-    const speedLerp = 1 - Math.exp(-(inputMoving ? ACCEL_RATE : DECEL_RATE) * dt);
+    const speedLerp =
+      1 - Math.exp(-(inputMoving ? ACCEL_RATE : DECEL_RATE) * dt);
     this.velocity.lerp(targetVelocity, speedLerp);
 
-    if (this.velocity.lengthSq() < MIN_VELOCITY_EPSILON * MIN_VELOCITY_EPSILON) {
+    if (
+      this.velocity.lengthSq() <
+      MIN_VELOCITY_EPSILON * MIN_VELOCITY_EPSILON
+    ) {
       this.velocity.set(0, 0, 0);
     }
 
@@ -330,7 +349,7 @@ export class PlayerCharacter {
     }
 
     // En vue de dessus, on fait pivoter le modèle pour qu'il regarde vers où il va
-    if (this.viewMode === 'TOP') {
+    if (this.viewMode === "TOP") {
       const lookDir = this._tmpVecB.copy(this.velocity).normalize();
       const lookAtAngle = Math.atan2(lookDir.x, lookDir.z);
       this.targetYaw = lookAtAngle + Math.PI;
@@ -348,7 +367,11 @@ export class PlayerCharacter {
 
     let headBone = null;
     this.model.traverse((child) => {
-      if (!headBone && child.isBone && child.name.toLowerCase().includes("head")) {
+      if (
+        !headBone &&
+        child.isBone &&
+        child.name.toLowerCase().includes("head")
+      ) {
         headBone = child;
       }
     });
@@ -368,21 +391,28 @@ export class PlayerCharacter {
     const shouldLockPointer = this.viewMode !== "TOP";
     this.input.setPointerLockEnabled(shouldLockPointer);
 
-    if (!shouldLockPointer && document.pointerLockElement === this.input.domElement) {
+    if (
+      !shouldLockPointer &&
+      document.pointerLockElement === this.input.domElement
+    ) {
       document.exitPointerLock();
     }
 
-    if (this.viewMode === 'TOP') {
+    if (this.viewMode === "TOP") {
       // VUE DE DESSUS : map globale avec joueur au centre
       this.scene.attach(this.camera);
-      this.camera.position.set(this.position.x, this.topViewHeight, this.position.z);
-      this.camera.rotation.set(-Math.PI / 2, 0, 0); 
+      this.camera.position.set(
+        this.position.x,
+        this.topViewHeight,
+        this.position.z,
+      );
+      this.camera.rotation.set(-Math.PI / 2, 0, 0);
       this.model.visible = true;
     } else {
       // VUES JOUEUR : La caméra suit le personnage
       this.yawPivot.attach(this.camera);
 
-      if (this.viewMode === 'FPV') {
+      if (this.viewMode === "FPV") {
         // Vue 1ère personne
         this.camera.position.set(0, this.eyeHeight, 0);
         this.camera.rotation.set(this.currentPitch, 0, 0);
@@ -409,7 +439,10 @@ export class PlayerCharacter {
   }
 
   _recomputeTopViewHeight() {
-    const span = Math.max(this.mazeSize.width * this.mazeSize.cellSize, this.mazeSize.height * this.mazeSize.cellSize);
+    const span = Math.max(
+      this.mazeSize.width * this.mazeSize.cellSize,
+      this.mazeSize.height * this.mazeSize.cellSize,
+    );
     const halfSpan = span / 2;
     const fovRadians = THREE.MathUtils.degToRad(this.camera.fov || 60);
     const fitHeight = (halfSpan + 6) / Math.tan(fovRadians / 2);
@@ -417,15 +450,19 @@ export class PlayerCharacter {
   }
 
   _updateCameraByMode(dt) {
-    if (this.viewMode === 'TOP') {
-      this.camera.position.set(this.position.x, this.topViewHeight, this.position.z);
+    if (this.viewMode === "TOP") {
+      this.camera.position.set(
+        this.position.x,
+        this.topViewHeight,
+        this.position.z,
+      );
       this.camera.lookAt(this.position.x, 0, this.position.z);
       if (this.topMarker) this.topMarker.visible = true;
       if (this.model) this.model.visible = true;
       return;
     }
 
-    if (this.viewMode === 'FPV') {
+    if (this.viewMode === "FPV") {
       this.camera.position.set(0, this.eyeHeight, 0);
       this.camera.rotation.set(this.currentPitch, 0, 0);
       if (this.topMarker) this.topMarker.visible = false;
@@ -439,9 +476,17 @@ export class PlayerCharacter {
       TPV_OFFSET.z,
     );
 
-    const anchorLocal = this._tmpVecC.set(0, this.eyeHeight + CAMERA_ANCHOR_HEIGHT_OFFSET, 0);
-    const anchorWorld = this.yawPivot.localToWorld(this._tmpAnchorWorld.copy(anchorLocal));
-    const desiredWorld = this.yawPivot.localToWorld(this._tmpDesiredWorld.copy(desiredLocal));
+    const anchorLocal = this._tmpVecC.set(
+      0,
+      this.eyeHeight + CAMERA_ANCHOR_HEIGHT_OFFSET,
+      0,
+    );
+    const anchorWorld = this.yawPivot.localToWorld(
+      this._tmpAnchorWorld.copy(anchorLocal),
+    );
+    const desiredWorld = this.yawPivot.localToWorld(
+      this._tmpDesiredWorld.copy(desiredLocal),
+    );
 
     if (this.walls?.sweepCameraCollisions) {
       this.walls.sweepCameraCollisions(
@@ -451,7 +496,11 @@ export class PlayerCharacter {
         CAMERA_COLLISION_HEIGHT,
       );
     } else if (this.walls?.resolveCameraCollisions) {
-      this.walls.resolveCameraCollisions(desiredWorld, CAMERA_COLLISION_RADIUS, CAMERA_COLLISION_HEIGHT);
+      this.walls.resolveCameraCollisions(
+        desiredWorld,
+        CAMERA_COLLISION_RADIUS,
+        CAMERA_COLLISION_HEIGHT,
+      );
     }
 
     const safeLocal = this.yawPivot.worldToLocal(desiredWorld);
@@ -473,9 +522,15 @@ export class PlayerCharacter {
         return;
       }
 
-      if (this.model.visible && cameraToHeadDistance < TPV_HIDE_MODEL_DISTANCE) {
+      if (
+        this.model.visible &&
+        cameraToHeadDistance < TPV_HIDE_MODEL_DISTANCE
+      ) {
         this.model.visible = false;
-      } else if (!this.model.visible && cameraToHeadDistance > TPV_SHOW_MODEL_DISTANCE) {
+      } else if (
+        !this.model.visible &&
+        cameraToHeadDistance > TPV_SHOW_MODEL_DISTANCE
+      ) {
         this.model.visible = true;
       }
     }
@@ -484,7 +539,14 @@ export class PlayerCharacter {
   _setupFlashlight() {
     if (this.flashlight) return;
 
-    const flashlight = new THREE.SpotLight("#ffffff", 2.2, 24, Math.PI / 5, 0.3, 2);
+    const flashlight = new THREE.SpotLight(
+      "#ffffff",
+      2.2,
+      24,
+      Math.PI / 5,
+      0.3,
+      2,
+    );
     flashlight.castShadow = true;
     flashlight.shadow.mapSize.set(1024, 1024);
     flashlight.position.set(0, 0, 0);
@@ -526,69 +588,82 @@ export class PlayerCharacter {
  *   onExit - callback when player exits
  *   onCameraModeSwitched - callback when camera mode changes (receives new mode: 'FPV', 'TPV', or 'TOP')
  */
-const PlayerComponent = forwardRef(({ walls, initialPosition = [0, 0, 0], onExit, onCameraModeSwitched }, ref) => {
-  const { scene, camera, gl } = useThree();
-  const playerRef = useRef(null);
-  const [startX, startY, startZ] = initialPosition;
-  const exitRef = useRef(null);
-  const hasExited = useRef(false);
+const PlayerComponent = forwardRef(
+  (
+    { walls, initialPosition = [0, 0, 0], onExit, onCameraModeSwitched },
+    ref,
+  ) => {
+    const { scene, camera, gl } = useThree();
+    const playerRef = useRef(null);
+    const [startX, startY, startZ] = initialPosition;
+    const exitRef = useRef(null);
+    const hasExited = useRef(false);
 
-  useImperativeHandle(ref, () => ({
-    refreshKeyBindings: () => {
-      if (playerRef.current && playerRef.current.input) {
-        playerRef.current.input.refreshKeyBindings();
+    useImperativeHandle(
+      ref,
+      () => ({
+        refreshKeyBindings: () => {
+          if (playerRef.current && playerRef.current.input) {
+            playerRef.current.input.refreshKeyBindings();
+          }
+        },
+      }),
+      [],
+    );
+
+    useEffect(() => {
+      const player = new PlayerCharacter(scene, camera, gl.domElement);
+      player.position.set(startX, startY, startZ);
+      player.onCameraModeSwitched = onCameraModeSwitched;
+      player.load();
+      playerRef.current = player;
+
+      return () => player.dispose();
+    }, [scene, camera, gl, startX, startY, startZ, onCameraModeSwitched]);
+
+    useEffect(() => {
+      if (playerRef.current) {
+        playerRef.current.walls = walls || null;
+        // Récupère la position de sortie si possible
+        if (walls && typeof walls.getExitPoint === "function") {
+          exitRef.current = walls.getExitPoint();
+        }
       }
-    },
-  }), []);
+    }, [walls]);
 
-  useEffect(() => {
-    const player = new PlayerCharacter(scene, camera, gl.domElement);
-    player.position.set(startX, startY, startZ);
-    player.onCameraModeSwitched = onCameraModeSwitched;
-    player.load();
-    playerRef.current = player;
-
-    return () => player.dispose();
-  }, [scene, camera, gl, startX, startY, startZ, onCameraModeSwitched]);
-
-  useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.walls = walls || null;
-      // Récupère la position de sortie si possible
-      if (walls && typeof walls.getExitPoint === 'function') {
-        exitRef.current = walls.getExitPoint();
+    useFrame(() => {
+      if (!playerRef.current || !exitRef.current || hasExited.current) return;
+      const pos = playerRef.current.position;
+      const exit = exitRef.current;
+      // On veut que la sortie ne se fasse que si le joueur touche la "zone d'ouverture" (mur EST ou SUD retiré)
+      // On récupère la taille d'une cellule (cellSize) et la position du centre de la cellule de sortie
+      const cellSize = playerRef.current.walls?.getMazeSize?.().cellSize || 2;
+      const margin = 0.45; // marge pour tolérance
+      // On considère la sortie si le joueur touche le bord EST ou SUD de la cellule de sortie
+      const estX = exit.x + cellSize / 2;
+      const sudZ = exit.z + cellSize / 2;
+      // Teste si le joueur est "au-delà" du mur EST ou SUD (avec une petite tolérance)
+      const toucheEst =
+        Math.abs(pos.x - estX) < margin &&
+        Math.abs(pos.z - exit.z) < cellSize / 2 - margin;
+      const toucheSud =
+        Math.abs(pos.z - sudZ) < margin &&
+        Math.abs(pos.x - exit.x) < cellSize / 2 - margin;
+      if (toucheEst || toucheSud) {
+        hasExited.current = true;
+        if (typeof onExit === "function") onExit();
       }
-    }
-  }, [walls]);
+    });
 
-  useFrame(() => {
-    if (!playerRef.current || !exitRef.current || hasExited.current) return;
-    const pos = playerRef.current.position;
-    const exit = exitRef.current;
-    // On veut que la sortie ne se fasse que si le joueur touche la "zone d'ouverture" (mur EST ou SUD retiré)
-    // On récupère la taille d'une cellule (cellSize) et la position du centre de la cellule de sortie
-    const cellSize = playerRef.current.walls?.getMazeSize?.().cellSize || 2;
-    const margin = 0.45; // marge pour tolérance
-    // On considère la sortie si le joueur touche le bord EST ou SUD de la cellule de sortie
-    const estX = exit.x + cellSize / 2;
-    const sudZ = exit.z + cellSize / 2;
-    // Teste si le joueur est "au-delà" du mur EST ou SUD (avec une petite tolérance)
-    const toucheEst = Math.abs(pos.x - estX) < margin && Math.abs(pos.z - exit.z) < cellSize / 2 - margin;
-    const toucheSud = Math.abs(pos.z - sudZ) < margin && Math.abs(pos.x - exit.x) < cellSize / 2 - margin;
-    if (toucheEst || toucheSud) {
-      hasExited.current = true;
-      if (typeof onExit === 'function') onExit();
-    }
-  });
+    useFrame((_, delta) => {
+      if (playerRef.current) {
+        playerRef.current.update(delta);
+      }
+    });
 
-  useFrame((_, delta) => {
-    if (playerRef.current) {
-      playerRef.current.update(delta);
-    }
-  });
+    return null;
+  },
+);
 
-  return null;
-});
-
-PlayerComponent.displayName = 'Player';
+PlayerComponent.displayName = "Player";
 export const Player = PlayerComponent;
