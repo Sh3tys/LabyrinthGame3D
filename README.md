@@ -50,135 +50,42 @@ L'environnement est composé :
 - Un Plafond
 - Un éclairage
 
-**Fichiers principaux** :
-
-- [src/three/objects/Labyrinth.jsx](src/three/objects/Labyrinth.jsx) - Génération du labyrinthe
-- [src/three/objects/MazeModules.js](src/three/objects/MazeModules.js) - Modules de construction du maze
-
 ### 2. **Joueur et Animations**
 
-Le joueur est un personnage 3D animé qui :
+Le joueur est composé:
 
-- Se déplace
-- Est visible en vue troisième personne
-- Disparaît en vue première personne
+- un modèle 3D
+- animations (marche, idle)
+- systeme de deplacement (configurable)
+- système de collision
+- changement de vue (FPS, TPS, Topview)
 
-**Fichiers principaux** :
+### 3. **Configurations** ⌨️
 
-- [src/three/objects/Player.jsx](src/three/objects/Player.jsx) - Classe PlayerCharacter
-- [src/three/objects/character/mainPlayer.js](src/three/objects/character/mainPlayer.js) - Modèle et assets du joueur
+| Touche (defaut) | Action                                 |
+| --------------- | -------------------------------------- |
+| **ZQSD**        | Mouvement                              |
+| **V**           | Basculer entre vue FPS / TPS / Topview |
+| **Échap**       | Menu pause                             |
 
-### 3. **Système de Collision**
+### 4. **GUI**
 
-Un système de collision robuste gère :
+Nos GUI sont composés :
 
-- **Collisions murs/joueur** : Empêche le joueur de traverser les murs
-- **Collisions caméra** : Smoothing pour éviter les clipping dans les environnements serrés
-- **Détection de sortie** : Reconnaît quand le joueur quitte le labyrinthe (victoire)
+- Ecran de chargement
+- Menu principal
+- Chronometre et FPS
+- Menu de pause
+- Menu de fin
+- Menu de paramètres
 
-**Implémentation** :
+### 5. **Gameplay** 🏁
 
-- La classe `PlayerCharacter` inclut la logique de collision raycasting
-- Les murs sont des volumes de collision basés sur les dimensions de la grille du maze
-
-### 4. **Contrôles** ⌨️
-
-Le joueur dispose de contrôles intuitifs :
-
-| Touche          | Action                                       |
-| --------------- | -------------------------------------------- |
-| **ZQSD / WASD** | Mouvement (haut/bas/gauche/droite)           |
-| **Souris**      | Vue à la première personne (rotation caméra) |
-| **V**           | Basculer entre vue FPS / TPS / Topview       |
-| **P**           | Pause / Reprendre                            |
-| **Échap**       | Menu principal / Retour au jeu               |
-
-**Fichiers principaux** :
-
-- [src/three/controls/InputController.js](src/three/controls/InputController.js) - Gestion des entrées
-- [src/utils/KeyBindings.js](src/utils/KeyBindings.js) - Raccourcis clavier configurable
-
-### 5. **Système de Caméra**
-
-Trois modes de caméra interchangeables :
-
-#### Vue Première Personne (FPS)
-
-- Position : Yeux du joueur (hauteur ~1.6m)
-- Contrôle : Souris pour la rotation (pitch/yaw)
-- Vue : Immersive, le joueur voit son environnement direct
-- Modèle : Invisible (rayon de vue depuis les yeux)
-
-#### Vue Troisième Personne (TPS)
-
-- Position : Derrière et au-dessus du joueur
-- Offset : ~1.2m de haut, ~3.5m de recul
-- Suivi : Smoothing pour un suivi fluide
-- Modèle : Visible et animé
-- Transition : Fadeout du modèle quand la caméra se rapproche
-
-#### Vue Topview
-
-- Position : Vue de dessus du labyrinthe
-- Contrôle : Pas de rotation, vue fixe
-- Modèle : Visible sur la map
-
-**Échange de vue** :
-
-- Appui sur **V** bascule entre les trois modes
-- Cooldown de 0.08s pour éviter les basculements rapides
-- Délai de grâce de 0.2s après basculement
-
-**Fichiers principaux** :
-
-- [src/three/objects/Player.jsx](src/three/objects/Player.jsx) - Logique de caméra dans PlayerCharacter
-
-### 6. **Chronométrage**
-
-Un système de chronométrage en temps réel :
-
-- **Démarrage** : À la création de la partie
-- **Affichage** : HUD en haut à gauche (minutes:secondes)
-- **Pause** : S'arrête lors de la mise en pause du jeu
-- **Réinitialisation** : Remet à zéro à chaque nouvelle partie
-
-**Fichiers principaux** :
-
-- [src/components/GameGUI.jsx](src/components/GameGUI.jsx) - Gestion du chrono et de l'état du jeu
-
-### 7. **Fin de Partie et Rejouabilité** 🏁
-
-Système complet de gestion de fin de partie :
-
-**Détection de victoire** :
-
-- Enregistrement du temps final
-- Affichage de l'écran de victoire avec score
-
-**Menu de victoire** :
-
-- Affichage du temps final
-- Bouton "Rejouer" pour relancer une nouvelle partie
-- Bouton "Menu principal" pour retourner au menu
-- Réinitialisation de tous les états (score, position, etc.)
-
-**Rejouabilité** :
-
-- Génération nouvelle du labyrinthe à chaque partie
-
-**Fichiers principaux** :
-
-- [src/components/GameGUI.jsx](src/components/GameGUI.jsx) - Gestion des états de jeu
-- [src/three/scenes/LabyrinthScene.jsx](src/three/scenes/LabyrinthScene.jsx) - Détection et intégration de victoire
-
-**Fichiers principaux** :
-
-- [src/three/objects/MazeModules.js](src/three/objects/MazeModules.js) - Factory de génération de modules
-- [src/three/objects/Labyrinth.jsx](src/three/objects/Labyrinth.jsx) - Orchestration et assemblage du labyrinthe
-
-**Fichiers principaux** :
-
-- [src/three/utils/AudioManager.js](src/three/utils/AudioManager.js) - Gestion centralisée de l'audio
+- Objectif : Trouver la sortie du labyrinthe
+- Score : base sur le Chronometre
+- Rejouabilité : apres la fin de partie / recommencer
+- Generation : creation dymanique du labyrinthe
+- SFX : son ambiant, son de pas du joueur, son aleatoire d'evenement
 
 ---
 
