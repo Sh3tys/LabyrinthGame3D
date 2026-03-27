@@ -1,0 +1,28 @@
+// Player module exports
+export { Player } from "./Player.jsx";
+export { PlayerCharacter } from "./PlayerCharacter.js";
+
+// Configuration
+export {
+  MODEL_PATH,
+  WALK_PATH,
+  IDLE_PATH,
+  MOVE_SPEED,
+  MOUSE_SENSITIVITY,
+  PITCH_LIMIT,
+  FALLBACK_EYE_HEIGHT,
+  TPV_OFFSET,
+  CAMERA_COLLISION_RADIUS,
+  CAMERA_COLLISION_HEIGHT,
+  CAMERA_ANCHOR_HEIGHT_OFFSET,
+  TPV_HIDE_MODEL_DISTANCE,
+  TPV_SHOW_MODEL_DISTANCE,
+  ACCEL_RATE,
+  DECEL_RATE,
+  MIN_VELOCITY_EPSILON,
+  SMOOTH_FACTOR,
+  MAX_DT,
+  TPV_CAMERA_SMOOTH,
+  VIEW_SWITCH_COOLDOWN,
+  TPV_SWITCH_GRACE,
+} from "./config.js";
