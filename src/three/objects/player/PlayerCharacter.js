@@ -28,23 +28,7 @@ import {
   MAX_DT,
 } from "./config.js";
 
-/**
- * PlayerCharacter
- * ---------------
- * OOP class that manages the player character in a Three.js scene:
- *   - Loads an FBX model and animation clips (idle, walk)
- *   - Handles FPS-style mouse look and WASD/ZQSD movement
- *   - Supports first-person (FPV) and third-person (TPV) camera
- *   - Optionally resolves collisions via a "walls" provider
- *
- * Usage:
- *   const player = new PlayerCharacter(scene, camera, canvas);
- *   await player.load();
- *   // in your render loop:
- *   player.update(deltaTime);
- *   // on cleanup:
- *   player.dispose();
- */
+// Player character controller - manages model, animation, camera, and input
 export class PlayerCharacter {
   constructor(scene, camera, domElement) {
     this.scene = scene;
@@ -52,11 +36,8 @@ export class PlayerCharacter {
     this.position = new THREE.Vector3();
     this.velocity = new THREE.Vector3();
 
-    // Current (smoothed) rotations
     this.currentYaw = 0;
     this.currentPitch = 0;
-
-    // Target rotations (set instantly by mouse input, smoothed toward)
     this.targetYaw = 0;
     this.targetPitch = 0;
     this.eyeHeight = FALLBACK_EYE_HEIGHT;
@@ -86,28 +67,22 @@ export class PlayerCharacter {
     this.viewSwitchCooldown = 0;
     this.forceTPVCameraSnap = false;
     this.tpvSwitchGraceRemaining = 0;
-    this.wasMoving = false; // Track previous movement state for audio
+    this.wasMoving = false;
 
-    // Yaw pivot — parent of camera and model, rotates on Y axis
     this.yawPivot = new THREE.Object3D();
     this.yawPivot.name = "PlayerYawPivot";
     scene.add(this.yawPivot);
 
-    // Attach camera to pivot
     this.yawPivot.add(camera);
     camera.rotation.order = "YXZ";
     camera.near = 0.12;
     camera.updateProjectionMatrix();
 
-    // Input controller
     this.input = new InputController(domElement);
-
     this._recomputeTopViewHeight();
   }
 
-  // ── Loading ───────────────────────────────────────────────
-
-  /** Load the player model and animation clips. */
+  // Load player model and animations
   async load() {
     try {
       const template = await loadCached(MODEL_PATH, "model");
@@ -119,7 +94,6 @@ export class PlayerCharacter {
       this.model.scale.setScalar(0.01);
       this.model.rotation.y = Math.PI;
 
-      // Enable shadows on all meshes
       skin.traverse((child) => {
         if (child.isMesh) {
           child.castShadow = true;
@@ -128,10 +102,8 @@ export class PlayerCharacter {
       });
 
       this.yawPivot.add(this.model);
-
       this.animController = new AnimationController(this.model);
 
-      // Set camera height from head bone
       this._computeEyeHeight();
       this._applyViewSettings();
       this._setupFlashlight();
@@ -144,6 +116,7 @@ export class PlayerCharacter {
     }
   }
 
+  // Load idle and walk animations
   async _loadAnimationsAsync() {
     if (!this.animController || this.disposed) return;
 
@@ -162,89 +135,71 @@ export class PlayerCharacter {
     }
   }
 
-  // ── Per-frame update ──────────────────────────────────────
-
-  /** Call every frame with the delta time in seconds. */
+  // Update player state each frame
   update(dt) {
     if (!this.loaded) return;
 
-    // Clamp delta time to prevent huge jumps
     dt = Math.min(dt, MAX_DT);
 
-    // Touche V : cycle fiable FPV -> TPV -> TOP -> FPV
     this.viewSwitchCooldown = Math.max(0, this.viewSwitchCooldown - dt);
     this.tpvSwitchGraceRemaining = Math.max(
       0,
       this.tpvSwitchGraceRemaining - dt,
     );
+
     if (this.input.consumeViewToggle() && this.viewSwitchCooldown <= 0) {
-      let next = "FPV";
-      if (this.viewMode === "FPV") next = "TPV";
-      else if (this.viewMode === "TPV") next = "TOP";
-      this._switchViewMode(next);
+      const modes = { FPV: "TPV", TPV: "TOP", TOP: "FPV" };
+      this._switchViewMode(modes[this.viewMode]);
     }
 
     this._handleMouseLook(dt);
     const movedThisFrame = this._handleMovement(dt);
 
-    // Collision resolution (if a wall provider is set)
     if (this.walls) {
       if (!movedThisFrame && this.walls.resolveCollisions) {
         this.walls.resolveCollisions(this.position);
       }
-
       if (this.walls.getMazeSize) {
         this.mazeSize = this.walls.getMazeSize();
         this._recomputeTopViewHeight();
       }
     }
 
-    // Advance animations
     if (this.animController) {
       this.animController.update(dt);
     }
 
-    // Sync pivot position
     this.yawPivot.position.copy(this.position);
-
     this._updateCameraByMode(dt);
   }
 
-  // ── Cleanup ───────────────────────────────────────────────
-
-  /** Remove from scene and release resources. */
+  // Cleanup and dispose
   dispose() {
     this.disposed = true;
-    audioManager.stopWalkSound(); // Stop walk sound on exit
+    audioManager.stopWalkSound();
     this.input.dispose();
     if (this.animController) this.animController.dispose();
 
     if (this.flashlight) {
       this.camera.remove(this.flashlight);
       if (this.flashlight.target) this.camera.remove(this.flashlight.target);
-      this.flashlight = null;
     }
 
     if (this.topMarker) {
       this.yawPivot.remove(this.topMarker);
       if (this.topMarker.geometry) this.topMarker.geometry.dispose();
       if (this.topMarker.material) this.topMarker.material.dispose();
-      this.topMarker = null;
     }
 
     this.scene.remove(this.yawPivot);
-    this.animController = null;
     this.model = null;
     this.loaded = false;
   }
 
-  // ── Internal helpers ──────────────────────────────────────
-
-  /** Rotate camera based on mouse movement with smooth interpolation. */
+  // Handle mouse look with smoothing
   _handleMouseLook(dt) {
     if (!this.input.pointerLocked || this.viewMode === "TOP") return;
 
-    // Update target rotations from raw mouse input
     const { x: dx, y: dy } = this.input.consumeMouseDelta();
     this.targetYaw -= dx * MOUSE_SENSITIVITY;
     this.targetPitch -= dy * MOUSE_SENSITIVITY;
@@ -253,30 +208,24 @@ export class PlayerCharacter {
       Math.min(PITCH_LIMIT, this.targetPitch),
     );
 
-    // Smoothly interpolate current rotation toward the target
-    // Using exponential decay: 1 - e^(-factor * dt) gives frame-rate-independent smoothing
     const t = 1 - Math.exp(-SMOOTH_FACTOR * dt);
     this.currentYaw += (this.targetYaw - this.currentYaw) * t;
     this.currentPitch += (this.targetPitch - this.currentPitch) * t;
 
-    // Apply smoothed rotations
     this.yawPivot.rotation.y = this.currentYaw;
     this.camera.rotation.x = this.currentPitch;
   }
 
-  /** Move position based on keyboard input. */
+  // Handle keyboard movement input
   _handleMovement(dt) {
     const inputMoving = this.input.isMoving;
-    let fwd;
-    let rgt;
+    let fwd, rgt;
 
     if (this.viewMode === "TOP") {
-      // En vue de dessus (TOP), axes mondiaux
       fwd = new THREE.Vector3(0, 0, -1);
       rgt = new THREE.Vector3(1, 0, 0);
     } else {
       const q = this.yawPivot.quaternion;
-      // Vecteurs directionnels projetés sur le plan XZ
       fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
       rgt = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
       fwd.y = 0;
@@ -312,7 +261,6 @@ export class PlayerCharacter {
       this.animController.setMoving(this.velocity.lengthSq() > 0.03);
     }
 
-    // Handle audio based on movement
     const isMoving = this.velocity.lengthSq() > 0.03;
     if (isMoving && !this.wasMoving) {
       audioManager.startWalkSound();
@@ -334,7 +282,6 @@ export class PlayerCharacter {
       }
     }
 
-    // En vue de dessus, on fait pivoter le modèle pour qu'il regarde vers où il va
     if (this.viewMode === "TOP") {
       const lookDir = this._tmpVecB.copy(this.velocity).normalize();
       const lookAtAngle = Math.atan2(lookDir.x, lookDir.z);
@@ -346,7 +293,7 @@ export class PlayerCharacter {
     return true;
   }
 
-  /** Find the head bone and set the eye height from it. */
+  // Compute eye height from head bone
   _computeEyeHeight() {
     if (!this.model) return;
     this.model.updateMatrixWorld(true);
@@ -366,11 +313,10 @@ export class PlayerCharacter {
       const worldPos = new THREE.Vector3();
       headBone.getWorldPosition(worldPos);
       this.eyeHeight = worldPos.y - this.yawPivot.position.y;
-      // eyeHeight set from head bone
     }
   }
 
-  /** Position the camera for FPV, TPV or Top-Down mode. */
+  // Apply view-specific settings
   _applyViewSettings() {
     if (!this.model) return;
 
@@ -385,7 +331,6 @@ export class PlayerCharacter {
     }
 
     if (this.viewMode === "TOP") {
-      // VUE DE DESSUS : map globale avec joueur au centre
       this.scene.attach(this.camera);
       this.camera.position.set(
         this.position.x,
@@ -395,16 +340,12 @@ export class PlayerCharacter {
       this.camera.rotation.set(-Math.PI / 2, 0, 0);
       this.model.visible = true;
     } else {
-      // VUES JOUEUR : La caméra suit le personnage
       this.yawPivot.attach(this.camera);
-
       if (this.viewMode === "FPV") {
-        // Vue 1ère personne
         this.camera.position.set(0, this.eyeHeight, 0);
         this.camera.rotation.set(this.currentPitch, 0, 0);
         this.model.visible = false;
       } else {
-        // Vue 3ème personne
         this.forceTPVCameraSnap = true;
         this.tpvSwitchGraceRemaining = TPV_SWITCH_GRACE;
         this.model.visible = true;
@@ -412,18 +353,19 @@ export class PlayerCharacter {
     }
   }
 
+  // Switch to next view mode
   _switchViewMode(nextMode) {
     if (this.viewMode === nextMode) return;
     this.viewMode = nextMode;
     this.viewSwitchCooldown = VIEW_SWITCH_COOLDOWN;
     this.input.clearMouseDelta();
     this._applyViewSettings();
-    // Notify about camera mode change
     if (this.onCameraModeSwitched) {
       this.onCameraModeSwitched(this.viewMode);
     }
   }
 
+  // Update top view height based on maze size
   _recomputeTopViewHeight() {
     const span = Math.max(
       this.mazeSize.width * this.mazeSize.cellSize,
@@ -435,6 +377,7 @@ export class PlayerCharacter {
     this.topViewHeight = Math.max(35, fitHeight);
   }
 
+  // Update camera position and rotation based on view mode
   _updateCameraByMode(dt) {
     if (this.viewMode === "TOP") {
       this.camera.position.set(
@@ -461,7 +404,6 @@ export class PlayerCharacter {
       this.eyeHeight + TPV_OFFSET.y,
       TPV_OFFSET.z,
     );
-
     const anchorLocal = this._tmpVecC.set(
       0,
       this.eyeHeight + CAMERA_ANCHOR_HEIGHT_OFFSET,
@@ -522,6 +464,7 @@ export class PlayerCharacter {
     }
   }
 
+  // Setup flashlight
   _setupFlashlight() {
     if (this.flashlight) return;
 
@@ -546,6 +489,7 @@ export class PlayerCharacter {
     this.flashlight = flashlight;
   }
 
+  // Setup top view marker
   _setupTopMarker() {
     if (this.topMarker) return;
 
