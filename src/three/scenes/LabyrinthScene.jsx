@@ -10,25 +10,22 @@ import { Player } from "../objects/player/Player.jsx";
 import { Labyrinth } from "../objects/labyrinth/Labyrinth.jsx";
 import { audioManager } from "../utils/AudioManager.js";
 
-// Set to false to hide the FPS counter
 const SHOW_FPS = true;
 
-// Component to manage ambient light visibility based on camera mode
+// Manage ambient light intensity based on camera mode
 function TopViewAmbientLight({ cameraMode }) {
   const ambientLightRef = useRef(null);
 
   useFrame(() => {
     if (ambientLightRef.current) {
-      // Enable ambient light only when in TOP view
-      ambientLightRef.current.intensity = cameraMode === "TOP" ? 80 : 0.4;
+      ambientLightRef.current.intensity = cameraMode === "TOP" ? 80 : 0.7;
     }
   });
 
-  return (
-    <ambientLight ref={ambientLightRef} intensity={0.4} color="#c8d8ff" />
-  );
+  return <ambientLight ref={ambientLightRef} intensity={0.7} color="#00cc33" />;
 }
 
+// Display FPS counter
 function FPSTracker({ domRef }) {
   const frameCount = useRef(0);
   const lastTime = useRef(null);
@@ -58,15 +55,12 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
   const [cameraMode, setCameraMode] = useState("FPV");
   const fpsRef = useRef(null);
   const playerRef = useRef(null);
-  const ambientLightRef = useRef(null);
 
   useImperativeHandle(
     ref,
     () => ({
       refreshKeyBindings: () => {
-        if (playerRef.current) {
-          playerRef.current.refreshKeyBindings();
-        }
+        if (playerRef.current) playerRef.current.refreshKeyBindings();
       },
     }),
     [],
@@ -74,21 +68,38 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
 
   const handleLabyrinthReady = (provider) => {
     setWalls(provider);
-    if (provider?.getSpawnPoint) {
-      const p = provider.getSpawnPoint();
-      setSpawn([p.x, p.y, p.z]);
-    }
+    const p = provider?.getSpawnPoint?.();
+    if (p) setSpawn([p.x, p.y, p.z]);
   };
 
-  const handleCanvasClick = (gl) => {
-    // Request pointer lock on canvas click
-    if (gl && gl.domElement) {
-      gl.domElement.requestPointerLock =
-        gl.domElement.requestPointerLock || gl.domElement.mozRequestPointerLock;
-      gl.domElement.requestPointerLock();
+  const initAudio = async () => {
+    if (!audioManager.initialized) {
+      await audioManager.init();
     }
-    // Resume audio context on user interaction (browser security requirement)
-    audioManager.resumeAudioContext();
+    await audioManager.resumeAudioContext();
+  };
+
+  const setupCanvas = ({ gl }) => {
+    const canvas = gl.domElement;
+
+    // Request pointer lock on click
+    canvas.requestPointerLock =
+      canvas.requestPointerLock || canvas.mozRequestPointerLock;
+    canvas.addEventListener("click", () => canvas.requestPointerLock());
+
+    // Initialize audio on first user interaction
+    canvas.addEventListener("click", initAudio, { once: true });
+    canvas.addEventListener("mousedown", initAudio, { once: true });
+    window.addEventListener("keydown", initAudio, { once: true });
+
+    // Handle WebGL context loss
+    canvas.addEventListener("webglcontextlost", (e) => {
+      console.warn("WebGL context lost");
+      e.preventDefault();
+    });
+    canvas.addEventListener("webglcontextrestored", () => {
+      console.log("WebGL context restored");
+    });
   };
 
   return (
@@ -103,51 +114,19 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
           failOnWebGL1: false,
         }}
         shadows={{ type: THREE.PCFShadowMap }}
-        onCreated={({ gl }) => {
-          handleCanvasClick(gl);
-          // Initialize audio on first user interaction (browser autoplay policy)
-          const initAudioOnInteraction = async () => {
-            if (!audioManager.initialized) {
-              await audioManager.init();
-            }
-            audioManager.resumeAudioContext();
-          };
-          // Add listeners for all user interactions to init and resume audio
-          gl.domElement.addEventListener("click", initAudioOnInteraction, {
-            once: true,
-          });
-          gl.domElement.addEventListener("mousedown", initAudioOnInteraction, {
-            once: true,
-          });
-          window.addEventListener("keydown", initAudioOnInteraction, {
-            once: true,
-          });
-
-          // Handle WebGL context loss
-          gl.domElement.addEventListener("webglcontextlost", (e) => {
-            console.warn("WebGL context lost, attempting recovery...");
-            e.preventDefault();
-          });
-          gl.domElement.addEventListener("webglcontextrestored", () => {
-            console.log("WebGL context restored");
-          });
-        }}
+        onCreated={setupCanvas}
       >
         <color attach="background" args={["#0d1117"]} />
-        {/* Fog atmosphérique */}
         <fog attach="fog" args={["#0d1117", 20, 80]} />
 
-        {/* Lumière ambiante douce - visibility managed by camera mode */}
         <TopViewAmbientLight cameraMode={cameraMode} />
 
-        {/* Lumière hémisphérique pour sol/ciel */}
         <hemisphereLight
           intensity={0.4}
           color="#dbe8ff"
           groundColor="#2a1a0a"
         />
 
-        {/* Lumière directionnelle principale (soleil) */}
         <directionalLight
           position={[20, 50, 10]}
           intensity={1.5}
@@ -164,7 +143,6 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
           color="#fdb437"
         />
 
-        {/* Point light chaud au centre pour l'ambiance */}
         <pointLight
           position={[0, 8, 0]}
           intensity={0.6}
@@ -180,7 +158,7 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
           onReady={handleLabyrinthReady}
         />
 
-        {walls && spawn ? (
+        {walls && spawn && (
           <Player
             ref={playerRef}
             walls={walls}
@@ -188,7 +166,7 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
             onExit={onExit}
             onCameraModeSwitched={setCameraMode}
           />
-        ) : null}
+        )}
 
         {SHOW_FPS && <FPSTracker domRef={fpsRef} />}
       </Canvas>

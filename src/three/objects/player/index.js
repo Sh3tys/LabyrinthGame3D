@@ -1,8 +1,6 @@
-// Player module exports
 export { Player } from "./Player.jsx";
 export { PlayerCharacter } from "./PlayerCharacter.js";
 
-// Configuration
 export {
   MODEL_PATH,
   WALK_PATH,

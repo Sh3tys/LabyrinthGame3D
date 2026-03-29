@@ -1,226 +1,126 @@
 /**
- * AudioManager - Manages all game audio
- * Handles: Background music (looping), Walk sounds (loop while moving), Event sounds (random)
+ * AudioManager - Simple game audio manager
+ * Manages: Background music, Walk sounds, Event sounds
  */
 
 class AudioManager {
   constructor() {
-    // Single shared AudioContext
+    // Audio context
     this.audioContext = null;
+    this.initialized = false;
 
-    // Background sound
+    // Background music
     this.backgroundAudio = null;
     this.backgroundSource = null;
-    this.backgroundGainNode = null;
-    this.isPlayingBackground = false;
+    this.backgroundGain = null;
 
     // Walk sound
     this.walkAudio = null;
     this.isWalking = false;
     this.walkSource = null;
-    this.walkGainNode = null;
+    this.walkGain = null;
 
     // Event sounds
     this.eventSounds = [];
-    this.eventSource = null;
     this.eventTimeout = null;
     this.isEventPlaying = false;
-    this.eventIntervalMin = 10000; // Min 10 seconds between events
-    this.eventIntervalMax = 30000; // Max 30 seconds between events
-    this.eventGainNodes = []; // Store all event sound audio elements for volume control
 
-    // Volume controls (0.0 to 1.0)
-    this.backgroundVolume = 0.5; // Default 50%
-    this.walkVolume = 0.5; // Default 50%
-    this.eventVolume = 0.5; // Default 50%
-
-    // Control flags
-    this.audioEnabled = true;
-    this.initialized = false;
+    // Volume (0 to 1)
+    this.backgroundVolume = 0.5;
+    this.walkVolume = 0.5;
+    this.eventVolume = 0.5;
   }
 
-  /**
-   * Initialize AudioManager - call once at game start
-   */
+  // Initialize audio system
   async init() {
     if (this.initialized) return;
-    
-    try {
-      // Create a single shared audio context
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Try to resume audio context with timeout
-      if (this.audioContext.state === 'suspended') {
-        try {
-          await Promise.race([
-            this.audioContext.resume(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Resume timeout')), 2000))
-          ]);
-        } catch (e) {
-          // Ignore resume errors
-        }
-      }
 
-      // Load event sounds (non-blocking)
-      this.loadEventSounds();
+    this.audioContext = new (
+      window.AudioContext || window.webkitAudioContext
+    )();
 
-      this.initialized = true;
-    } catch (error) {
-      this.audioEnabled = false;
-      this.initialized = true;
+    // Resume audio if suspended
+    if (this.audioContext.state === "suspended") {
+      this.audioContext.resume();
     }
+
+    // Load event sounds
+    this.loadEventSounds();
+    this.initialized = true;
   }
 
-  /**
-   * Load all event sounds from the eventSound folder
-   */
-  async loadEventSounds() {
-    const eventSoundFiles = [
-        "eventSound-1.mp3",
-        "eventSound-2.mp3",
-        "eventSound-3.mp3",
-        "eventSound-4.mp3",
-        "eventSound-5.mp3",
-        "eventSound-6.mp3",
-        "eventSound-7.mp3",
-        "eventSound-8.mp3",
-        "eventSound-9.mp3",
-        "eventSound-10.mp3",
-        "eventSound-11.mp3",
-        "eventSound-12.mp3",
-        "eventSound-13.mp3",
-    ];
-    
-    // Create audio elements with proper error handling
-    eventSoundFiles.forEach((filename, index) => {
+  // Load all event sound files
+  loadEventSounds() {
+    const files = Array.from(
+      { length: 13 },
+      (_, i) => `eventSound-${i + 1}.mp3`,
+    );
+
+    files.forEach((filename) => {
       const audio = new Audio();
       audio.src = `/sounds/eventSound/${filename}`;
-      audio.preload = "auto";
       this.eventSounds.push(audio);
     });
 
-    // Start event system after files have time to load
-    if (this.eventSounds.length > 0) {
-      setTimeout(() => {
-        // Event system ready
-        this.scheduleNextEventSound();
-      }, 1500);
-    }
+    // Start scheduling events after delay
+    setTimeout(() => this.scheduleEvent(), 1500);
   }
 
-  /**
-   * Load a single audio file with detailed error handling
-   */
+  // Fetch and decode audio file
   async loadAudioFile(path) {
-    if (!this.audioContext) {
-      throw new Error("AudioContext not initialized");
-    }
-    
-    try {
-      const response = await fetch(path);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText} - File not found: ${path}`);
-      }
-      
-      const arrayBuffer = await response.arrayBuffer();
-      
-      if (arrayBuffer.byteLength === 0) {
-        throw new Error(`Empty file: ${path}`);
-      }
-      
-      try {
-        const decoded = await this.audioContext.decodeAudioData(arrayBuffer);
-        return decoded;
-      } catch (decodeError) {
-        throw new Error(`Failed to decode audio: ${decodeError.message}. File might not be a valid MP3/audio file.`);
-      }
-    } catch (error) {
-      throw error;
-    }
+    const response = await fetch(path);
+    const arrayBuffer = await response.arrayBuffer();
+    return this.audioContext.decodeAudioData(arrayBuffer);
   }
 
-  /**
-   * Play background sound with automatic looping
-   */
+  // Play background music (loops)
   async playBackgroundSound() {
-    if (!this.audioEnabled) return;
-    
-    // Prevent multiple simultaneous background sound plays
-    if (this.isPlayingBackground) return;
-    this.isPlayingBackground = true;
-
-    // Ensure audioContext exists before playing
-    if (!this.audioContext) {
-      if (!this.initialized) {
-        await this.init();
-      }
-      if (!this.audioContext) {
-        this.isPlayingBackground = false;
-        return; // Still no context, bail
-      }
-    }
+    if (!this.audioContext) return;
 
     try {
-      // Stop previous background sound completely
+      // Stop previous
       if (this.backgroundSource) {
-        try {
-          this.backgroundSource.stop();
-        } catch (e) {
-          // Already stopped
-        }
-        this.backgroundSource = null;
+        this.backgroundSource.stop();
       }
 
-      // Always reload audio file for each play to ensure fresh playback
-      this.backgroundAudio = await this.loadAudioFile("/sounds/backgroundSound.mp3");
-
-      this._playAudioBuffer(
-        this.backgroundAudio,
-        true,
-        (source, gainNode) => {
-          this.backgroundSource = source;
-          this.backgroundGainNode = gainNode;
-          gainNode.gain.value = this.backgroundVolume; // Apply current volume
-          // On end, automatically replay
-          source.onended = () => {
-            this.isPlayingBackground = false;
-            this.playBackgroundSound();
-          };
-        }
+      this.backgroundAudio = await this.loadAudioFile(
+        "/sounds/backgroundSound.mp3",
       );
-    } catch (error) {
-      // Silent fail - audio file may not be available
-      this.isPlayingBackground = false;
+
+      const source = this.audioContext.createBufferSource();
+      const gain = this.audioContext.createGain();
+
+      source.buffer = this.backgroundAudio;
+      source.loop = true;
+      gain.gain.value = this.backgroundVolume;
+
+      source.connect(gain);
+      gain.connect(this.audioContext.destination);
+      source.start(0);
+
+      this.backgroundSource = source;
+      this.backgroundGain = gain;
+
+      // Replay when finished
+      source.onended = () => {
+        this.playBackgroundSound();
+      };
+    } catch {
+      console.log("Error: Could not load background sound");
     }
   }
 
-  /**
-   * Stop background sound and reset audio state for replay
-   */
+  // Stop background music
   stopBackgroundSound() {
-    this.isPlayingBackground = false;
     if (this.backgroundSource) {
-      try {
-        this.backgroundSource.stop();
-      } catch (e) {
-        // Already stopped
-      }
+      this.backgroundSource.stop();
       this.backgroundSource = null;
     }
-    this.backgroundGainNode = null;
-    // Reset audio buffer to force fresh load on next play
-    this.backgroundAudio = null;
   }
 
-  /**
-   * Play walk sound (loops while walking)
-   */
+  // Play walk sound (loops while moving)
   async startWalkSound() {
-    if (!this.audioEnabled || !this.audioContext) return;
-
-    // Already walking, don't start another
-    if (this.isWalking) return;
+    if (!this.audioContext || this.isWalking) return;
 
     try {
       if (!this.walkAudio) {
@@ -229,267 +129,143 @@ class AudioManager {
 
       this.isWalking = true;
 
-      this._playAudioBuffer(
-        this.walkAudio,
-        true,
-        (source, gainNode) => {
-          this.walkSource = source;
-          this.walkGainNode = gainNode;
-          gainNode.gain.value = this.walkVolume * 0.35; // Apply walk volume with its base reduction
-          // Auto-loop only if still walking
-          source.onended = () => {
-            if (this.isWalking && this.walkSource === source) {
-              this.startWalkSound();
-            }
-          };
-        },
-        0.35 // Reduced walk sound volume (35%)
-      );
-    } catch (error) {
+      const source = this.audioContext.createBufferSource();
+      const gain = this.audioContext.createGain();
+
+      source.buffer = this.walkAudio;
+      source.loop = true;
+      gain.gain.value = this.walkVolume * 0.35;
+
+      source.connect(gain);
+      gain.connect(this.audioContext.destination);
+      source.start(0);
+
+      this.walkSource = source;
+      this.walkGain = gain;
+
+      // Loop if still walking
+      source.onended = () => {
+        if (this.isWalking) this.startWalkSound();
+      };
+    } catch {
       this.isWalking = false;
     }
   }
 
-  /**
-   * Stop walk sound (no loop on next end)
-   */
+  // Stop walk sound
   stopWalkSound() {
-    if (!this.isWalking) return; // Already stopped
-    
     this.isWalking = false;
-    
-    // Stop the current walk source if it exists
     if (this.walkSource) {
-      try {
-        this.walkSource.stop();
-      } catch (e) {
-        // Already stopped
-      }
+      this.walkSource.stop();
       this.walkSource = null;
     }
   }
 
-  /**
-   * Schedule next random event sound
-   */
-  scheduleNextEventSound() {
-    if (!this.audioEnabled || this.eventSounds.length === 0) {
-      return;
-    }
+  // Schedule next event sound
+  scheduleEvent() {
+    if (this.eventSounds.length === 0) return;
 
-    if (this.eventTimeout) clearTimeout(this.eventTimeout);
-
-    const delay = Math.random() * (this.eventIntervalMax - this.eventIntervalMin) + this.eventIntervalMin;
+    clearTimeout(this.eventTimeout);
+    const delay = Math.random() * 20000 + 10000; // 10-30 seconds
 
     this.eventTimeout = setTimeout(() => {
       if (!this.isEventPlaying) {
         this.playRandomEventSound();
       } else {
-        this.scheduleNextEventSound();
+        this.scheduleEvent();
       }
     }, delay);
   }
 
-  /**
-   * Play a random event sound
-   */
+  // Play random event sound
   playRandomEventSound() {
-    if (!this.audioEnabled || this.eventSounds.length === 0 || this.isEventPlaying) {
-      return;
-    }
+    if (this.eventSounds.length === 0 || this.isEventPlaying) return;
 
-    // Try up to 3 times to find a playable sound
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    const tryPlay = () => {
-      if (attempts >= maxAttempts) {
-        // Give up and schedule next
-        this.isEventPlaying = false;
-        this.scheduleNextEventSound();
-        return;
-      }
-      
-      attempts++;
-      const randomIndex = Math.floor(Math.random() * this.eventSounds.length);
-      const audio = this.eventSounds[randomIndex];
+    const audio =
+      this.eventSounds[Math.floor(Math.random() * this.eventSounds.length)];
 
-      // Check if audio element is valid and can play
-      if (!audio || audio.readyState === 0 || audio.networkState === 3) {
-        // Audio failed to load, try next one
-        tryPlay();
-        return;
-      }
+    if (!audio) return;
 
-      this.isEventPlaying = true;
+    this.isEventPlaying = true;
+    audio.currentTime = 0;
+    audio.volume = this.eventVolume;
 
-      // Reset and set volume before attempt to play
-      audio.currentTime = 0;
-      audio.volume = this.eventVolume; // Apply event volume
-      
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            // Successfully started playing
-          })
-          .catch((error) => {
-            // Playback failed, increment attempts and try again
-            attempts++;
-            if (attempts < maxAttempts) {
-              tryPlay();
-            } else {
-              this.isEventPlaying = false;
-              this.scheduleNextEventSound();
-            }
-          });
-      }
+    audio.play().catch(() => {
+      this.isEventPlaying = false;
+      this.scheduleEvent();
+    });
 
-      // Schedule next sound when this one ends
-      const onEnded = () => {
-        this.isEventPlaying = false;
-        audio.removeEventListener('ended', onEnded);
-        this.scheduleNextEventSound();
-      };
-      
-      audio.onended = onEnded;
+    audio.onended = () => {
+      this.isEventPlaying = false;
+      this.scheduleEvent();
     };
-    
-    tryPlay();
   }
 
-  /**
-   * Helper method to play audio buffer
-   * @private
-   */
-  _playAudioBuffer(buffer, loop = false, onSourceCreated = null, volume = 0.7) {
-    try {
-      if (!this.audioContext) {
-        throw new Error("AudioContext not available");
+  // Pause events
+  pauseEvents() {
+    clearTimeout(this.eventTimeout);
+    if (this.isEventPlaying) {
+      const current = this.eventSounds.find(
+        (a) => !a.paused && a.currentTime > 0,
+      );
+      if (current) {
+        current.pause();
+        current.currentTime = 0;
       }
+      this.isEventPlaying = false;
+    }
+  }
 
-      const source = this.audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.loop = loop;
+  // Resume events
+  resumeEvents() {
+    this.scheduleEvent();
+  }
 
-      // Create gain node for volume control
-      const gainNode = this.audioContext.createGain();
-      gainNode.gain.value = volume; // Volume control
+  // Volume controls
+  setBackgroundVolume(volume) {
+    this.backgroundVolume = Math.max(0, Math.min(1, volume));
+    if (this.backgroundGain) {
+      this.backgroundGain.gain.value = this.backgroundVolume;
+    }
+  }
 
-      source.connect(gainNode);
-      gainNode.connect(this.audioContext.destination);
+  setWalkVolume(volume) {
+    this.walkVolume = Math.max(0, Math.min(1, volume));
+    if (this.walkGain) {
+      this.walkGain.gain.value = this.walkVolume * 0.35;
+    }
+  }
 
-      if (onSourceCreated) onSourceCreated(source, gainNode);
+  setEventVolume(volume) {
+    this.eventVolume = Math.max(0, Math.min(1, volume));
+    this.eventSounds.forEach((audio) => {
+      audio.volume = this.eventVolume;
+    });
+  }
 
-      source.start(0);
-    } catch (error) {
+  setMasterVolume(volume) {
+    this.setBackgroundVolume(volume);
+    this.setWalkVolume(volume);
+    this.setEventVolume(volume);
+  }
+
+  // Resume audio context after user interaction
+  async resumeAudioContext() {
+    if (!this.audioContext || this.audioContext.state === "running") return;
+    try {
+      if (this.audioContext.state === "suspended") {
+        await this.audioContext.resume();
+      }
+    } catch {
       // Silent fail
     }
   }
 
-  /**
-   * Set background sound volume (0.0 to 1.0)
-   */
-  setBackgroundVolume(volume) {
-    const vol = Math.max(0, Math.min(1, volume));
-    this.backgroundVolume = vol;
-    if (this.backgroundGainNode) {
-      this.backgroundGainNode.gain.value = vol;
-    }
-  }
-
-  /**
-   * Set walk sound volume (0.0 to 1.0)
-   */
-  setWalkVolume(volume) {
-    const vol = Math.max(0, Math.min(1, volume));
-    this.walkVolume = vol;
-    if (this.walkGainNode) {
-      this.walkGainNode.gain.value = vol * 0.35; // Apply with base reduction
-    }
-  }
-
-  /**
-   * Set event sounds volume (0.0 to 1.0)
-   */
-  setEventVolume(volume) {
-    const vol = Math.max(0, Math.min(1, volume));
-    this.eventVolume = vol;
-    // Update all event audio elements
-    this.eventSounds.forEach((audio) => {
-      audio.volume = vol;
-    });
-  }
-
-  /**
-   * Set volume for all sounds (0.0 to 1.0)
-   */
-  setMasterVolume(volume) {
-    const vol = Math.max(0, Math.min(1, volume));
-    this.setBackgroundVolume(vol);
-    this.setWalkVolume(vol);
-    this.setEventVolume(vol);
-  }
-
-  /**
-   * Pause event sounds (skip current, pause scheduling)
-   */
-  pauseEvents() {
-    // Stop current event if playing
-    if (this.isEventPlaying) {
-      const currentAudio = this.eventSounds.find(audio => audio.currentTime > 0 && !audio.paused);
-      if (currentAudio) {
-        currentAudio.currentTime = 0;
-        currentAudio.pause();
-      }
-      this.isEventPlaying = false;
-    }
-    
-    // Clear any pending event scheduling
-    if (this.eventTimeout) {
-      clearTimeout(this.eventTimeout);
-      this.eventTimeout = null;
-    }
-  }
-
-  /**
-   * Resume event sounds (restart scheduling)
-   */
-  resumeEvents() {
-    // Restart event scheduling
-    this.scheduleNextEventSound();
-  }
-
-  /**
-   * Resume audio context (call after user gesture)
-   */
-  async resumeAudioContext() {
-    if (!this.audioContext || this.audioContext.state === 'running') return;
-    
-    try {
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
-      }
-    } catch (error) {
-      // Silent fail - audio context may not be resumable
-    }
-  }
-
-  /**
-   * Enable/Disable all audio
-   */
-  setAudioEnabled(enabled) {
-    this.audioEnabled = enabled;
-  }
-
-  /**
-   * Clean up audio resources on game end
-   */
+  // Cleanup
   dispose() {
     this.stopBackgroundSound();
     this.stopWalkSound();
-
-    if (this.eventTimeout) clearTimeout(this.eventTimeout);
+    this.pauseEvents();
 
     if (this.audioContext?.state !== "closed") {
       this.audioContext?.close();
@@ -500,6 +276,6 @@ class AudioManager {
   }
 }
 
-// Export singleton instance
+// Export singleton
 export const audioManager = new AudioManager();
 export default AudioManager;

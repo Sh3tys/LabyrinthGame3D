@@ -1,7 +1,5 @@
 import * as THREE from "three";
 
-// ─── Player Configuration ──────────────────────────────────────
-
 // Asset paths
 export const MODEL_PATH = "/models/player/playerModel.fbx";
 export const WALK_PATH = "/models/player/playerAnimationWalk.fbx";

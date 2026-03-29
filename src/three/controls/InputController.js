@@ -1,10 +1,4 @@
-/**
- * InputController
- * ---------------
- * Handles keyboard and mouse input for the player.
- * Click on the canvas to lock the pointer for FPS-style mouse look.
- * Supports configurable key bindings for movement and actions.
- */
+// Handles keyboard and mouse input for player movement and actions
 import { keyBindingsManager } from "../../utils/KeyBindings.js";
 
 export class InputController {
@@ -16,11 +10,10 @@ export class InputController {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.viewTogglePending = false;
-    
-    // Load key bindings
+
     this.bindings = keyBindingsManager.getBindings();
 
-    // Bind event handlers
+    // Event handlers
     this._onKeyDown = (e) => {
       this.keys.add(e.code);
       if (e.code === this.bindings.viewToggle) this.viewTogglePending = true;
@@ -39,9 +32,7 @@ export class InputController {
 
     this._onPointerLockChange = () => {
       this.pointerLocked = document.pointerLockElement === domElement;
-      if (!this.pointerLocked) {
-        this.clearMouseDelta();
-      }
+      if (!this.pointerLocked) this.clearMouseDelta();
     };
 
     this._clearInputState = () => {
@@ -50,9 +41,7 @@ export class InputController {
     };
 
     this._onVisibilityChange = () => {
-      if (document.hidden) {
-        this._clearInputState();
-      }
+      if (document.hidden) this._clearInputState();
     };
 
     // Attach listeners
@@ -63,17 +52,14 @@ export class InputController {
     document.addEventListener("pointerlockchange", this._onPointerLockChange);
     document.addEventListener("visibilitychange", this._onVisibilityChange);
 
-    // Click canvas to lock pointer
+    // Click to lock pointer
     this._onClick = () => {
-      if (this.pointerLockEnabled) {
-        domElement.requestPointerLock();
-      }
+      if (this.pointerLockEnabled) domElement.requestPointerLock();
     };
     domElement.addEventListener("click", this._onClick);
   }
 
-  // ── Direction getters ───────────────────
-
+  // Direction checks
   get forward() {
     return this.keys.has(this.bindings.forward);
   }
@@ -94,18 +80,15 @@ export class InputController {
     return this.forward || this.backward || this.left || this.right;
   }
 
-  // ── One-shot consumers (call once per frame) ──────────────
-
-  /** Returns true once per V-key press, then resets. */
+  // Get view toggle (consume once per frame)
   consumeViewToggle() {
-    const v = this.viewTogglePending;
+    const result = this.viewTogglePending;
     this.viewTogglePending = false;
-    return v;
+    return result;
   }
 
-  /** Returns accumulated mouse delta since last call, clamped and then reset. */
+  // Get mouse movement (clamped and reset each frame)
   consumeMouseDelta() {
-    // Clamp to prevent huge jumps during frame spikes
     const MAX = 150;
     const delta = {
       x: Math.max(-MAX, Math.min(MAX, this.mouseDX)),
@@ -125,12 +108,12 @@ export class InputController {
     this.mouseDY = 0;
   }
 
-  /** Refresh key bindings from manager (call when settings change) */
+  // Refresh bindings from settings
   refreshKeyBindings() {
     this.bindings = keyBindingsManager.getBindings();
   }
 
-  /** Remove all event listeners. */
+  // Cleanup
   dispose() {
     window.removeEventListener("keydown", this._onKeyDown);
     window.removeEventListener("keyup", this._onKeyUp);

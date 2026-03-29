@@ -1,45 +1,29 @@
 import * as THREE from "three";
 
-/**
- * AnimationController
- * -------------------
- * Manages animation playback and smooth transitions (crossfade)
- * between states like "idle" and "walk".
- *
- * Root motion (Hips/Root position tracks) is automatically stripped
- * so animations play in-place.
- */
+// Manages animation playback and transitions between states (idle/walk)
 export class AnimationController {
   constructor(model) {
     this.model = model;
     this.mixer = new THREE.AnimationMixer(model);
-    this.actions = {}; // { idle: Action, walk: Action, ... }
+    this.actions = {};
     this.activeAction = null;
     this.moving = false;
     this.fadeDuration = 0.3;
   }
 
-  /**
-   * Register a new animation clip under the given name.
-   * Root motion is stripped automatically.
-   * If the name is "idle" and nothing is playing yet, it starts immediately.
-   */
+  // Register animation and auto-play idle if first
   addAction(name, clip) {
     const cleanClip = this._stripRootMotion(clip);
     const action = this.mixer.clipAction(cleanClip);
     action.loop = THREE.LoopRepeat;
     this.actions[name] = action;
 
-    // Auto-play idle if nothing is active yet
     if (name === "idle" && !this.activeAction) {
       this.fadeTo("idle");
     }
   }
 
-  /**
-   * Crossfade to the animation with the given name.
-   * Does nothing if it's already playing or doesn't exist.
-   */
+  // Crossfade to animation by name
   fadeTo(name) {
     const next = this.actions[name];
     if (!next || next === this.activeAction) return;
@@ -57,40 +41,32 @@ export class AnimationController {
     this.activeAction = next;
   }
 
-  /**
-   * Switch between idle and walk animations based on movement state.
-   * Only triggers a transition when the state actually changes.
-   */
+  // Switch between idle and walk based on movement state
   setMoving(isMoving) {
     if (this.moving === isMoving) return;
     this.moving = isMoving;
     this.fadeTo(isMoving ? "walk" : "idle");
   }
 
-  /** Advance the mixer by deltaTime seconds. Call every frame. */
+  // Update animation mixer (call every frame)
   update(dt) {
     this.mixer.update(dt);
   }
 
-  /** Stop all animations and clean up. */
+  // Cleanup
   dispose() {
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.model);
   }
 
-  // ── Internal helpers ──────────────────────────────────────
-
-  /**
-   * Remove position tracks on the root bone (Hips / Root)
-   * so the animation plays in-place instead of drifting.
-   */
+  // Remove root motion from animation clip
   _stripRootMotion(clip) {
     const cleaned = clip.clone();
     cleaned.tracks = cleaned.tracks.filter((track) => {
-      const isRootPosition =
+      const isRootPos =
         track.name.endsWith(".position") &&
         (track.name.includes("Hips") || track.name.includes("Root"));
-      return !isRootPosition;
+      return !isRootPos;
     });
     return cleaned;
   }
