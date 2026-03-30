@@ -18,11 +18,11 @@ function TopViewAmbientLight({ cameraMode }) {
 
   useFrame(() => {
     if (ambientLightRef.current) {
-      ambientLightRef.current.intensity = cameraMode === "TOP" ? 80 : 0.7;
+      ambientLightRef.current.intensity = cameraMode === "TOP" ? 100 : 0.7;
     }
   });
 
-  return <ambientLight ref={ambientLightRef} intensity={0.7} color="#00cc33" />;
+  return <ambientLight ref={ambientLightRef} intensity={0.7} color="#767d78" />;
 }
 
 // Display FPS counter
@@ -123,7 +123,7 @@ const LabyrinthScene = forwardRef(({ onExit }, ref) => {
 
         <hemisphereLight
           intensity={0.4}
-          color="#dbe8ff"
+          color="#fff700"
           groundColor="#2a1a0a"
         />
 
